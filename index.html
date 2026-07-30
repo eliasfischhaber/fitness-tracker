@@ -29,7 +29,7 @@
     .app-title { font-size: 1.25rem; font-weight: 800; background: linear-gradient(135deg, #FFF 30%, var(--sub)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     
     .nav-tabs { display: flex; gap: 4px; margin-bottom: 14px; background: rgba(255, 255, 255, 0.03); padding: 3px; border-radius: 12px; border: 1px solid var(--border); width: 100%; }
-    .tab-btn { flex: 1; padding: 10px 0; text-align: center; background: none; border: none; color: var(--sub); font-weight: 600; font-size: 0.8rem; border-radius: 9px; cursor: pointer; }
+    .tab-btn { flex: 1; padding: 10px 0; text-align: center; background: none; border: none; color: var(--sub); font-weight: 600; font-size: 0.8rem; border-radius: 99px; cursor: pointer; transition: all 0.2s ease; }
     .tab-btn.active { background: var(--accent); color: #FFF; font-weight: 700; box-shadow: 0 4px 15px var(--accent-glow); }
 
     .card { background: var(--card); border-radius: 16px; padding: 14px; border: 1px solid var(--border); margin-bottom: 12px; width: 100%; }
@@ -65,12 +65,15 @@
     .btn-small { padding: 8px 12px; background: var(--accent); color: #FFF; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.8rem; white-space: nowrap; }
     .save-btn { width: 100%; padding: 14px; background: var(--accent); color: #FFF; border: none; border-radius: 12px; font-size: 0.9rem; font-weight: 800; cursor: pointer; margin-top: 8px; box-shadow: 0 4px 20px var(--accent-glow); }
     .chart-container { height: 140px; width: 100%; margin-top: 6px; }
+
+    .status-badge { font-size: 0.7rem; padding: 3px 8px; border-radius: 6px; font-weight: 600; background: rgba(255,255,255,0.05); color: var(--sub); }
   </style>
 </head>
 <body>
 
   <div class="top-header">
-    <div class="app-title">GymTracker Cloud</div>
+    <div class="app-title">GymTracker Pro</div>
+    <div id="status-tag" class="status-badge">Lade...</div>
   </div>
 
   <div class="nav-tabs">
@@ -96,7 +99,7 @@
 
     <div class="card">
       <div class="card-title">
-        <span>Progress (Chronologisch)</span>
+        <span>Progress</span>
         <span style="font-size:0.78rem; color:var(--green); font-weight:800;" id="growth-val">+0.0%</span>
       </div>
       <select id="view-mode" onchange="handleModeChange()" style="margin-bottom:6px;">
@@ -108,7 +111,7 @@
     </div>
 
     <div id="workout-container"></div>
-    <button class="save-btn" onclick="saveData()">In Cloud Speichern</button>
+    <button class="save-btn" onclick="saveData()">Einheit Speichern</button>
   </div>
 
   <!-- REITER 2: DASHBOARD -->
@@ -143,10 +146,22 @@
   </div>
 
   <script>
-    // SUPABASE KONFIGURATION (Hier deine Daten einfügen!)
-    const SUPABASE_URL = 'sb_publishable_8TQveJjJm0R3EpIRU2IkxA_WZuz57tt';
-    const SUPABASE_ANON_KEY = 'DEIN_SUPABASE_ANON_KEY_HIER';
-    const supabase = supabase.createClient(sb_publishable_8TQveJjJm0R3EpIRU2IkxA_WZuz57tt, sb_publishable_8TQveJjJm0R3EpIRU2IkxA_WZuz57tt);
+    // SUPABASE KONFIGURATION (Setze hier deine Daten ein falls genutzt!)
+    const SUPABASE_URL = 'https://djqjrgfiwlhqvchivxqe.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqcWpyZ2Zpd2xocXZjaGl2eHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MjAzMzUsImV4cCI6MjEwMDk5NjMzNX0.3UxQM7UWKsdImLulIKakDNDfPU73Hnt6mUyHQ7ptgNU';
+    
+    let supabaseClient = null;
+    let isCloudMode = false;
+
+    // Supabase sicher initialisieren
+    if (typeof window.supabase !== 'undefined' && SUPABASE_URL !== 'DEINE_SUPABASE_URL_HIER' && !SUPABASE_URL.includes('DEINE_SUPABASE')) {
+      try {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        isCloudMode = true;
+      } catch (e) {
+        console.warn("Cloud init failed, falling back to LocalStorage:", e);
+      }
+    }
 
     const exercisesConfig = {
       A: [
@@ -175,12 +190,11 @@
 
     let currentDay = 'A';
     let dbHistory = [];
-    let userWeight = 75;
+    let userWeight = parseFloat(localStorage.getItem('gym_weight') || '75');
     let todayProtein = 0;
     let myChart = null;
 
     const todayStr = new Date().toISOString().split('T')[0];
-    document.getElementById('workout-date').value = todayStr;
 
     function switchMainTab(tab) {
       document.getElementById('view-workout').style.display = (tab === 'WORKOUT') ? 'block' : 'none';
@@ -190,29 +204,56 @@
     }
 
     async function init() {
-      await fetchCloudData();
-      switchDay('A');
+      // Heutiges Datum als Default eintragen
+      document.getElementById('workout-date').value = todayStr;
+      
+      const statusTag = document.getElementById('status-tag');
+      if (isCloudMode) {
+        statusTag.innerText = '☁️ Cloud';
+        statusTag.style.color = '#38BDF8';
+      } else {
+        statusTag.innerText = '📱 Lokal';
+        statusTag.style.color = '#10B981';
+      }
+
+      await loadAllData();
       renderWeekStrip();
+      switchDay('A');
     }
 
-    async function fetchCloudData() {
-      // Workouts laden
-      const { data: workouts } = await supabase.from('workouts').select('*');
-      dbHistory = workouts || [];
+    async function loadAllData() {
+      if (isCloudMode) {
+        try {
+          const { data: workouts, error } = await supabaseClient.from('workouts').select('*');
+          if (!error && workouts) dbHistory = workouts;
+          else dbHistory = JSON.parse(localStorage.getItem('gym_history') || '[]');
 
-      // Daily Logs (Gewicht & Protein) laden
-      const { data: logs } = await supabase.from('daily_logs').select('*');
-      if (logs && logs.length > 0) {
-        const lastLogWithWeight = logs.filter(l => l.weight).pop();
-        if (lastLogWithWeight) userWeight = lastLogWithWeight.weight;
-        
-        const todayLog = logs.find(l => l.date === todayStr);
-        if (todayLog) todayProtein = todayLog.protein || 0;
+          const { data: logs } = await supabaseClient.from('daily_logs').select('*');
+          if (logs && logs.length > 0) {
+            const lastLogWithWeight = logs.filter(l => l.weight).pop();
+            if (lastLogWithWeight) userWeight = lastLogWithWeight.weight;
+            
+            const todayLog = logs.find(l => l.date === todayStr);
+            if (todayLog) todayProtein = todayLog.protein || 0;
+          }
+        } catch (err) {
+          console.warn("Cloud Load Error, fallback to LocalStorage", err);
+          loadLocalData();
+        }
+      } else {
+        loadLocalData();
       }
 
       document.getElementById('user-weight').value = userWeight;
       updateProteinTarget();
       updateProteinUI();
+    }
+
+    function loadLocalData() {
+      dbHistory = JSON.parse(localStorage.getItem('gym_history') || '[]');
+      userWeight = parseFloat(localStorage.getItem('gym_weight') || '75');
+      const dailyProteinObj = JSON.parse(localStorage.getItem('gym_protein') || '{}');
+      todayProtein = dailyProteinObj[todayStr] || 0;
     }
 
     function renderWeekStrip() {
@@ -242,7 +283,14 @@
       const val = parseFloat(document.getElementById('user-weight').value);
       if (!val) return;
       userWeight = val;
-      await supabase.from('daily_logs').upsert({ date: todayStr, weight: userWeight, protein: todayProtein });
+      localStorage.setItem('gym_weight', val);
+
+      if (isCloudMode) {
+        try {
+          await supabaseClient.from('daily_logs').upsert({ date: todayStr, weight: userWeight, protein: todayProtein });
+        } catch(e) {}
+      }
+      
       updateProteinTarget();
       alert("Gewicht gesichert!");
     }
@@ -257,7 +305,17 @@
       const val = parseInt(document.getElementById('protein-input').value);
       if (!val) return;
       todayProtein += val;
-      await supabase.from('daily_logs').upsert({ date: todayStr, weight: userWeight, protein: todayProtein });
+
+      const dailyProteinObj = JSON.parse(localStorage.getItem('gym_protein') || '{}');
+      dailyProteinObj[todayStr] = todayProtein;
+      localStorage.setItem('gym_protein', JSON.stringify(dailyProteinObj));
+
+      if (isCloudMode) {
+        try {
+          await supabaseClient.from('daily_logs').upsert({ date: todayStr, weight: userWeight, protein: todayProtein });
+        } catch(e) {}
+      }
+
       document.getElementById('protein-input').value = '';
       updateProteinUI();
     }
@@ -282,7 +340,7 @@
     function renderWorkout() {
       const container = document.getElementById('workout-container');
       container.innerHTML = '';
-      const selectedDate = document.getElementById('workout-date').value;
+      const selectedDate = document.getElementById('workout-date').value || todayStr;
 
       exercisesConfig[currentDay].forEach((ex, exIdx) => {
         const card = document.createElement('div');
@@ -331,7 +389,6 @@
       const selectedExercise = document.getElementById('exercise-picker').value;
       const filteredHistory = dbHistory.filter(h => h.day_type === currentDay);
       
-      // CHRONOLOGISCHES SORTIEREN: Von alt (links) nach neu (rechts)
       const dates = [...new Set(filteredHistory.map(h => h.date))].sort((a, b) => new Date(a) - new Date(b));
       let dataPoints = [];
 
@@ -368,8 +425,7 @@
     }
 
     async function saveData() {
-      const selectedDate = document.getElementById('workout-date').value;
-      if (!selectedDate) return alert("Bitte wähle ein Datum aus!");
+      const selectedDate = document.getElementById('workout-date').value || todayStr;
 
       let newEntries = [];
 
@@ -391,18 +447,33 @@
         }
       });
 
-      if (newEntries.length > 0) {
-        // Vorherige Eintrags-Duplikate für denselben Tag & Typ löschen
-        await supabase.from('workouts').delete().eq('date', selectedDate).eq('day_type', currentDay);
-        // Neue eintragen
-        await supabase.from('workouts').insert(newEntries);
-        alert("Training erfolgreich in der Cloud gespeichert!");
-        await fetchCloudData();
-        renderWorkout();
+      if (newEntries.length === 0) return alert("Bitte trage mindestens ein Gewicht oder Wiederholungen ein!");
+
+      // Immer Lokal als Backup sichern
+      newEntries.forEach(entry => {
+        dbHistory = dbHistory.filter(h => !(h.date === entry.date && h.day_type === entry.day_type && h.exercise_name === entry.exercise_name && h.set_number === entry.set_number));
+        dbHistory.push(entry);
+      });
+      localStorage.setItem('gym_history', JSON.stringify(dbHistory));
+
+      // Falls Cloud aktiv ist, dort hinsenden
+      if (isCloudMode) {
+        try {
+          await supabaseClient.from('workouts').delete().eq('date', selectedDate).eq('day_type', currentDay);
+          await supabaseClient.from('workouts').insert(newEntries);
+          alert("Training erfolgreich in der Cloud gespeichert!");
+        } catch (err) {
+          alert("Lokal gespeichert (Cloud Fehler)!");
+        }
+      } else {
+        alert("Training lokal auf dem Gerät gespeichert!");
       }
+
+      renderChart();
+      renderWorkout();
     }
 
-    init();
+    window.onload = init;
   </script>
 </body>
 </html>
