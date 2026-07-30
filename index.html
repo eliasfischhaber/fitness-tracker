@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Gym & Nutrition Pro</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -11,7 +11,6 @@
     :root {
       --bg: #09090B;
       --card: #121215;
-      --card-hover: #18181C;
       --accent: #6366F1;
       --accent-glow: rgba(99, 102, 241, 0.25);
       --green: #10B981;
@@ -22,73 +21,312 @@
       --border-accent: rgba(99, 102, 241, 0.3);
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif; -webkit-tap-highlight-color: transparent; }
-    body { background-color: var(--bg); color: var(--text); padding: 16px; padding-bottom: 90px; width: 100vw; overflow-x: hidden; }
+    *, *::before, *::after { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif; 
+      -webkit-tap-highlight-color: transparent; 
+    }
 
-    /* Glass Header / Tabs */
-    .top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .app-title { font-size: 1.35rem; font-weight: 800; tracking: -0.02em; background: linear-gradient(135deg, #FFF 30%, var(--sub)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    html, body { 
+      width: 100%; 
+      max-width: 100%; 
+      overflow-x: hidden !important; 
+      background-color: var(--bg); 
+      color: var(--text); 
+    }
+
+    body { 
+      padding: 12px; 
+      padding-top: max(12px, env(safe-area-inset-top)); 
+      padding-bottom: max(90px, env(safe-area-inset-bottom)); 
+    }
+
+    /* Top Header */
+    .top-header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      margin-bottom: 14px; 
+    }
     
-    .nav-tabs { display: flex; gap: 6px; margin-bottom: 20px; background: rgba(255, 255, 255, 0.03); padding: 4px; border-radius: 14px; border: 1px solid var(--border); backdrop-filter: blur(12px); }
-    .tab-btn { flex: 1; padding: 11px 0; text-align: center; background: none; border: none; color: var(--sub); font-weight: 600; font-size: 0.85rem; border-radius: 10px; cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
-    .tab-btn.active { background: var(--accent); color: #FFF; font-weight: 700; box-shadow: 0 4px 20px var(--accent-glow); }
+    .app-title { 
+      font-size: 1.25rem; 
+      font-weight: 800; 
+      letter-spacing: -0.02em; 
+      background: linear-gradient(135deg, #FFF 30%, var(--sub)); 
+      -webkit-background-clip: text; 
+      -webkit-text-fill-color: transparent; 
+    }
+    
+    /* Navigation Tabs */
+    .nav-tabs { 
+      display: flex; 
+      gap: 4px; 
+      margin-bottom: 14px; 
+      background: rgba(255, 255, 255, 0.03); 
+      padding: 3px; 
+      border-radius: 12px; 
+      border: 1px solid var(--border); 
+      width: 100%;
+    }
+
+    .tab-btn { 
+      flex: 1; 
+      padding: 10px 0; 
+      text-align: center; 
+      background: none; 
+      border: none; 
+      color: var(--sub); 
+      font-weight: 600; 
+      font-size: 0.8rem; 
+      border-radius: 9px; 
+      cursor: pointer; 
+      transition: all 0.2s ease; 
+    }
+
+    .tab-btn.active { 
+      background: var(--accent); 
+      color: #FFF; 
+      font-weight: 700; 
+      box-shadow: 0 4px 15px var(--accent-glow); 
+    }
 
     /* Cards */
-    .card { background: var(--card); border-radius: 18px; padding: 18px; border: 1px solid var(--border); margin-bottom: 16px; transition: transform 0.2s ease, border-color 0.2s ease; }
-    .card-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; letter-spacing: -0.01em; }
+    .card { 
+      background: var(--card); 
+      border-radius: 16px; 
+      padding: 14px; 
+      border: 1px solid var(--border); 
+      margin-bottom: 12px; 
+      width: 100%;
+    }
 
-    /* Control Panel */
-    .control-panel { background: var(--card); border-radius: 18px; padding: 16px; border: 1px solid var(--border); margin-bottom: 16px; display: flex; flex-direction: column; gap: 12px; }
-    .panel-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .card-title { 
+      font-size: 0.9rem; 
+      font-weight: 700; 
+      margin-bottom: 10px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+    }
+
+    /* Controls Panel */
+    .control-panel { 
+      background: var(--card); 
+      border-radius: 16px; 
+      padding: 12px; 
+      border: 1px solid var(--border); 
+      margin-bottom: 12px; 
+      display: flex; 
+      flex-direction: column; 
+      gap: 10px; 
+      width: 100%;
+    }
+
+    .panel-row { 
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between; 
+      gap: 8px; 
+      width: 100%;
+    }
     
     input[type="date"], input[type="number"], select { 
       background: rgba(255, 255, 255, 0.04); 
       border: 1px solid var(--border); 
       color: var(--text); 
-      padding: 10px 12px; 
-      border-radius: 10px; 
-      font-size: 0.88rem; 
+      padding: 8px 10px; 
+      border-radius: 8px; 
+      font-size: 0.85rem; 
       font-weight: 600; 
       outline: none; 
-      transition: all 0.2s ease;
+      width: 100%;
+      min-width: 0;
+      -webkit-appearance: none;
     }
-    input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
 
-    .day-selector { display: flex; gap: 6px; width: 100%; }
-    .day-btn { flex: 1; padding: 10px 0; text-align: center; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); color: var(--sub); font-weight: 600; font-size: 0.85rem; border-radius: 10px; cursor: pointer; transition: all 0.2s ease; }
-    .day-btn.active { background: rgba(99, 102, 241, 0.15); color: var(--accent); font-weight: 700; border-color: var(--border-accent); }
+    input:focus, select:focus { 
+      border-color: var(--accent); 
+      box-shadow: 0 0 0 2px var(--accent-glow); 
+    }
 
-    /* Week Strip */
-    .week-strip { display: flex; justify-content: space-between; gap: 6px; }
-    .day-pill { flex: 1; text-align: center; padding: 10px 0; background: rgba(255, 255, 255, 0.02); border-radius: 12px; border: 1px solid var(--border); font-size: 0.8rem; font-weight: 600; }
-    .day-pill.today { border-color: var(--accent); background: var(--accent-glow); color: #FFF; font-weight: 800; box-shadow: 0 0 12px var(--accent-glow); }
-    .day-name { color: var(--sub); font-size: 0.65rem; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .day-selector { 
+      display: flex; 
+      gap: 4px; 
+      width: 100%; 
+    }
+
+    .day-btn { 
+      flex: 1; 
+      padding: 9px 0; 
+      text-align: center; 
+      background: rgba(255, 255, 255, 0.02); 
+      border: 1px solid var(--border); 
+      color: var(--sub); 
+      font-weight: 600; 
+      font-size: 0.8rem; 
+      border-radius: 8px; 
+      cursor: pointer; 
+    }
+
+    .day-btn.active { 
+      background: rgba(99, 102, 241, 0.15); 
+      color: var(--accent); 
+      font-weight: 700; 
+      border-color: var(--border-accent); 
+    }
+
+    /* Week Strip Widget */
+    .week-strip { 
+      display: flex; 
+      justify-content: space-between; 
+      gap: 3px; 
+      width: 100%;
+    }
+
+    .day-pill { 
+      flex: 1; 
+      text-align: center; 
+      padding: 8px 0; 
+      background: rgba(255, 255, 255, 0.02); 
+      border-radius: 8px; 
+      border: 1px solid var(--border); 
+      font-size: 0.75rem; 
+      font-weight: 600; 
+      min-width: 0;
+    }
+
+    .day-pill.today { 
+      border-color: var(--accent); 
+      background: var(--accent-glow); 
+      color: #FFF; 
+      font-weight: 800; 
+    }
+
+    .day-name { 
+      color: var(--sub); 
+      font-size: 0.6rem; 
+      margin-bottom: 2px; 
+      text-transform: uppercase; 
+    }
 
     /* Protein Progress Bar */
-    .progress-bar-bg { width: 100%; height: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); margin: 12px 0; }
-    .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); width: 0%; border-radius: 99px; transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 0 10px var(--green-glow); }
+    .progress-bar-bg { 
+      width: 100%; 
+      height: 10px; 
+      background: rgba(255, 255, 255, 0.05); 
+      border-radius: 99px; 
+      overflow: hidden; 
+      border: 1px solid var(--border); 
+      margin: 10px 0; 
+    }
 
-    /* Exercise Items */
-    .exercise-card { background: var(--card); border-radius: 18px; padding: 16px; margin-bottom: 12px; border: 1px solid var(--border); }
-    .exercise-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-    .set-container { margin-bottom: 10px; }
+    .progress-bar-fill { 
+      height: 100%; 
+      background: linear-gradient(90deg, var(--accent), var(--green)); 
+      width: 0%; 
+      border-radius: 99px; 
+      transition: width 0.4s ease; 
+    }
+
+    /* Exercise Items - Strict Mobile Grid */
+    .exercise-card { 
+      background: var(--card); 
+      border-radius: 14px; 
+      padding: 12px; 
+      margin-bottom: 10px; 
+      border: 1px solid var(--border); 
+      width: 100%;
+    }
+
+    .exercise-title { 
+      font-size: 0.88rem; 
+      font-weight: 700; 
+      margin-bottom: 10px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .set-container { 
+      margin-bottom: 8px; 
+      width: 100%;
+    }
+
     .set-container:last-child { margin-bottom: 0; }
-    .set-row { display: grid; grid-template-columns: 50px 1fr 1fr; gap: 8px; align-items: center; }
-    .last-val-hint { font-size: 0.72rem; color: var(--sub); margin-top: 4px; text-align: right; grid-column: 2 / 4; }
 
-    .btn-small { padding: 10px 16px; background: var(--accent); color: #FFF; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 0.85rem; box-shadow: 0 2px 10px var(--accent-glow); transition: transform 0.1s ease; }
-    .btn-small:active { transform: scale(0.96); }
+    .set-row { 
+      display: grid; 
+      grid-template-columns: 42px 1fr 1fr; 
+      gap: 6px; 
+      align-items: center; 
+      width: 100%;
+    }
 
-    .save-btn { width: 100%; padding: 15px; background: var(--accent); color: #FFF; border: none; border-radius: 14px; font-size: 0.95rem; font-weight: 800; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 25px var(--accent-glow); transition: all 0.2s ease; }
-    .save-btn:active { transform: scale(0.98); }
+    .set-row input { 
+      text-align: center; 
+      font-weight: 700; 
+    }
 
-    .chart-container { height: 160px; width: 100%; margin-top: 8px; }
+    .last-val-hint { 
+      font-size: 0.68rem; 
+      color: var(--sub); 
+      margin-top: 2px; 
+      text-align: right; 
+      grid-column: 2 / 4; 
+    }
+
+    .btn-small { 
+      padding: 8px 12px; 
+      background: var(--accent); 
+      color: #FFF; 
+      border: none; 
+      border-radius: 8px; 
+      font-weight: 700; 
+      cursor: pointer; 
+      font-size: 0.8rem; 
+      white-space: nowrap;
+    }
+
+    .btn-outline {
+      padding: 6px 10px;
+      background: transparent;
+      color: var(--sub);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+
+    .save-btn { 
+      width: 100%; 
+      padding: 14px; 
+      background: var(--accent); 
+      color: #FFF; 
+      border: none; 
+      border-radius: 12px; 
+      font-size: 0.9rem; 
+      font-weight: 800; 
+      cursor: pointer; 
+      margin-top: 8px; 
+      box-shadow: 0 4px 20px var(--accent-glow); 
+    }
+
+    .chart-container { 
+      height: 140px; 
+      width: 100%; 
+      margin-top: 6px; 
+    }
   </style>
 </head>
 <body>
 
   <div class="top-header">
-    <div class="app-title">GymTracker</div>
+    <div class="app-title">GymTracker Pro</div>
   </div>
 
   <div class="nav-tabs">
@@ -100,7 +338,7 @@
   <div id="view-workout">
     <div class="control-panel">
       <div class="panel-row">
-        <span style="font-size: 0.85rem; font-weight: 600; color: var(--sub);">Datum:</span>
+        <span style="font-size: 0.8rem; font-weight: 600; color: var(--sub); white-space: nowrap;">Datum:</span>
         <input type="date" id="workout-date" onchange="renderWorkout()">
       </div>
       <div class="panel-row">
@@ -115,13 +353,13 @@
     <div class="card">
       <div class="card-title">
         <span>Progress</span>
-        <span style="font-size:0.8rem; color:var(--green); font-weight:800;" id="growth-val">+0.0%</span>
+        <span style="font-size:0.78rem; color:var(--green); font-weight:800;" id="growth-val">+0.0%</span>
       </div>
-      <select id="view-mode" onchange="handleModeChange()" style="margin-bottom:8px;">
+      <select id="view-mode" onchange="handleModeChange()" style="margin-bottom:6px;">
         <option value="PLAN">Gesamter Trainingsplan</option>
         <option value="EXERCISE">Einzelne Übung</option>
       </select>
-      <select id="exercise-picker" style="display: none; margin-bottom:8px;" onchange="renderChart()"></select>
+      <select id="exercise-picker" style="display: none; margin-bottom:6px;" onchange="renderChart()"></select>
       <div class="chart-container"><canvas id="progressChart"></canvas></div>
     </div>
 
@@ -138,11 +376,11 @@
 
     <div class="card">
       <div class="card-title">Körpergewicht & Ziel</div>
-      <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+      <div style="display: flex; gap: 6px; margin-bottom: 6px;">
         <input type="number" step="0.1" id="user-weight" placeholder="Gewicht (kg)">
         <button class="btn-small" onclick="saveWeight()">Sichern</button>
       </div>
-      <div style="font-size: 0.8rem; color: var(--sub);" id="protein-target-text">Täglicher Zielbedarf: 0 g</div>
+      <div style="font-size: 0.78rem; color: var(--sub);" id="protein-target-text">Täglicher Zielbedarf: 0 g</div>
     </div>
 
     <div class="card">
@@ -153,9 +391,12 @@
       <div class="progress-bar-bg">
         <div class="progress-bar-fill" id="protein-progress"></div>
       </div>
-      <div style="display: flex; gap: 8px; margin-top: 12px;">
+      <div style="display: flex; gap: 6px; margin-top: 8px;">
         <input type="number" id="protein-input" placeholder="Gramm (z.B. 40)">
         <button class="btn-small" onclick="addProtein()">+ Hinzufügen</button>
+      </div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+        <button class="btn-outline" onclick="resetProteinToday()">Manuell auf 0 zurücksetzen</button>
       </div>
     </div>
   </div>
@@ -257,7 +498,14 @@
       updateProteinUI();
     }
 
+    function resetProteinToday() {
+      dailyProtein[todayStr] = 0;
+      localStorage.setItem('gym_protein', JSON.stringify(dailyProtein));
+      updateProteinUI();
+    }
+
     function updateProteinUI() {
+      // Basiert dynamisch auf dem heutigen Datum (heißt: an jedem neuen Tag automatisch bei 0 g)
       const currentProtein = dailyProtein[todayStr] || 0;
       const target = Math.round(userWeight * 2.0);
       document.getElementById('protein-count-text').innerText = `${currentProtein} / ${target} g`;
@@ -283,7 +531,7 @@
       exercisesConfig[currentDay].forEach((ex, exIdx) => {
         const card = document.createElement('div');
         card.className = 'exercise-card';
-        let html = `<div class="exercise-title">${ex.name} ${ex.subtitle ? `<span style="font-size:0.75rem; color:var(--accent);">${ex.subtitle}</span>` : ''}</div>`;
+        let html = `<div class="exercise-title">${ex.name} ${ex.subtitle ? `<span style="font-size:0.72rem; color:var(--accent);">${ex.subtitle}</span>` : ''}</div>`;
 
         for(let s = 0; s < ex.sets; s++) {
           const exactEntry = dbHistory.find(h => h.date === selectedDate && h.day_type === currentDay && h.exercise_name === ex.name && h.set_number === (s + 1));
@@ -296,7 +544,7 @@
           html += `
             <div class="set-container">
               <div class="set-row">
-                <div style="font-size:0.8rem; color:var(--sub); font-weight:600;">Satz ${s + 1}</div>
+                <div style="font-size:0.78rem; color:var(--sub); font-weight:600;">Satz ${s + 1}</div>
                 <input type="number" step="0.5" placeholder="kg" id="w_${exIdx}_${s}" value="${currentW}">
                 <input type="number" placeholder="Wdh" id="r_${exIdx}_${s}" value="${currentR}">
               </div>
