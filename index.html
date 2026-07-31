@@ -85,7 +85,7 @@
     .input-group { display: flex; flex-direction: column; gap: 2px; width: 100%; }
     .input-label { font-size: 0.72rem; color: var(--sub); font-weight: 600; margin-bottom: 2px; }
 
-    /* PERFEKTES VOLLBILD OVERLAY */
+    /* VOLLBILD SCANNER OVERLAY */
     #scanner-overlay { 
       display: none; 
       position: fixed; 
@@ -291,10 +291,12 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqcWpyZ2Zpd2xocXZjaGl2eHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MjAzMzUsImV4cCI6MjEwMDk5NjMzNX0.3UxQM7UWKsdImLulIKakDNDfPU73Hnt6mUyHQ7ptgNU';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    // VORDEFINIERTE BENUTZER (Inklusive Yoshi)
     const VALID_USERS = {
       "elias": { email: "elias@gymtracker.app", pass: "Elias123!", name: "Elias" },
       "anh": { email: "anh@gymtracker.app", pass: "Anh12345!", name: "Anh" },
-      "denni": { email: "denni@gymtracker.app", pass: "Denni123!", name: "Denni" }
+      "denni": { email: "denni@gymtracker.app", pass: "Denni123!", name: "Denni" },
+      "yoshi": { email: "yoshi@gymtracker.app", pass: "Yoshi123!", name: "Yoshi" }
     };
 
     const DEFAULT_PLANS = {
@@ -380,7 +382,7 @@
 
       const account = VALID_USERS[usernameInput];
       if (!account || (passwordInput.toLowerCase() !== usernameInput)) {
-        return alert("Ungültige Zugangsdaten! Erlaubt sind Elias, Anh und Denni.");
+        return alert("Ungültige Zugangsdaten! Erlaubt sind Elias, Anh, Denni und Yoshi.");
       }
 
       let { data, error } = await supabaseClient.auth.signInWithPassword({
@@ -856,7 +858,7 @@
       document.getElementById('kcal-progress').style.width = kPct + '%';
     }
 
-    // VOLLBILD SCANNER LOGIK
+    // SCANNER LOGIK
     function startBarcodeScanner() {
       document.getElementById('scanner-overlay').style.display = 'block';
       html5QrcodeScanner = new Html5Qrcode("reader");
@@ -894,13 +896,22 @@
           const pPer100 = p.nutriments['proteins_100g'] || 0;
           const kPer100 = p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'] || 0;
 
-          const gramsStr = prompt(`Produkt gefunden: ${name}\n\nNährwerte (pro 100g):\n- Protein: ${pPer100}g\n- Kalorien: ${kPer100} kcal\n\nWie viel Gramm hast du gegessen?`, "100");
+          const categories = (p.categories_tags || []).join(' ').toLowerCase();
+          const quantity = (p.quantity || "").toLowerCase();
           
-          if (gramsStr) {
-            const grams = parseFloat(gramsStr);
-            if (!isNaN(grams) && grams > 0) {
-              const addP = Math.round((pPer100 * grams) / 100);
-              const addK = Math.round((kPer100 * grams) / 100);
+          const isDrink = categories.includes('beverage') || categories.includes('getränk') || quantity.includes('ml') || quantity.includes('liter') || quantity.match(/\d\s*l\b/);
+
+          const unit = isDrink ? "ml" : "g";
+          const actionText = isDrink ? "getrunken" : "gegessen";
+          const unitWord = isDrink ? "Milliliter" : "Gramm";
+
+          const amountStr = prompt(`Produkt gefunden: ${name}\n\nNährwerte (pro 100${unit}):\n- Protein: ${pPer100}g\n- Kalorien: ${kPer100} kcal\n\nWie viel ${unitWord} hast du ${actionText}?`, "100");
+          
+          if (amountStr) {
+            const amount = parseFloat(amountStr);
+            if (!isNaN(amount) && amount > 0) {
+              const addP = Math.round((pPer100 * amount) / 100);
+              const addK = Math.round((kPer100 * amount) / 100);
 
               todayProtein += addP;
               todayKcal += addK;
@@ -911,7 +922,7 @@
               );
 
               updateNutritionUI();
-              alert(`Hinzugefügt für ${name} (${grams}g):\n+${addP}g Protein\n+${addK} kcal`);
+              alert(`Hinzugefügt für ${name} (${amount}${unit}):\n+${addP}g Protein\n+${addK} kcal`);
             }
           }
         } else {
