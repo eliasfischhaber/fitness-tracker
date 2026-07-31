@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Gym & Nutrition Multi-User</title>
+  <title>Gym & Nutrition Pro</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -15,6 +15,7 @@
       --accent: #6366F1;
       --accent-glow: rgba(99, 102, 241, 0.25);
       --green: #10B981;
+      --orange: #F59E0B;
       --text: #F4F4F5;
       --sub: #71717A;
       --border: rgba(255, 255, 255, 0.08);
@@ -25,7 +26,6 @@
     html, body { width: 100%; max-width: 100%; overflow-x: hidden !important; background-color: var(--bg); color: var(--text); }
     body { padding: 12px; padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(90px, env(safe-area-inset-bottom)); }
 
-    /* Auth Screen */
     #auth-screen { display: flex; flex-direction: column; justify-content: center; min-height: 80vh; max-width: 380px; margin: 0 auto; }
     
     .top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
@@ -55,8 +55,10 @@
     .day-pill.today { border-color: var(--accent); background: var(--accent-glow); color: #FFF; font-weight: 800; }
     .day-name { color: var(--sub); font-size: 0.6rem; margin-bottom: 2px; text-transform: uppercase; }
 
-    .progress-bar-bg { width: 100%; height: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); margin: 10px 0; }
+    /* Progress Bars */
+    .progress-bar-bg { width: 100%; height: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); margin: 8px 0 12px 0; }
     .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); width: 0%; border-radius: 99px; transition: width 0.4s ease; }
+    .progress-bar-fill-kcal { height: 100%; background: linear-gradient(90deg, var(--accent), var(--orange)); width: 0%; border-radius: 99px; transition: width 0.4s ease; }
 
     .exercise-card { background: var(--card); border-radius: 14px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); width: 100%; }
     .exercise-title { font-size: 0.88rem; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; }
@@ -65,12 +67,14 @@
     .set-row input { text-align: center; font-weight: 700; margin-bottom: 0; }
     .last-val-hint { font-size: 0.68rem; color: var(--sub); margin-top: 2px; text-align: right; grid-column: 2 / 4; }
 
-    .btn-small { padding: 8px 12px; background: var(--accent); color: #FFF; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.8rem; white-space: nowrap; }
+    .btn-small { padding: 8px 12px; background: var(--accent); color: #FFF; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.8rem; white-space: nowrap; margin-bottom: 8px; }
     .btn-outline { padding: 6px 10px; background: transparent; color: var(--sub); border: 1px solid var(--border); border-radius: 6px; font-size: 0.7rem; cursor: pointer; }
     .save-btn { width: 100%; padding: 14px; background: var(--accent); color: #FFF; border: none; border-radius: 12px; font-size: 0.9rem; font-weight: 800; cursor: pointer; margin-top: 8px; box-shadow: 0 4px 20px var(--accent-glow); }
     .chart-container { height: 140px; width: 100%; margin-top: 6px; }
 
     .user-badge { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: rgba(99, 102, 241, 0.15); padding: 4px 8px; border-radius: 6px; }
+    .input-group { display: flex; flex-direction: column; gap: 2px; width: 100%; }
+    .input-label { font-size: 0.72rem; color: var(--sub); font-weight: 600; margin-bottom: 2px; }
   </style>
 </head>
 <body>
@@ -140,6 +144,24 @@
         <div class="week-strip" id="week-strip"></div>
       </div>
 
+      <!-- ZIEL-EINSTELLUNGEN -->
+      <div class="card">
+        <div class="card-title">Ziel-Einstellungen</div>
+        <div style="display: flex; gap: 8px;">
+          <div class="input-group">
+            <span class="input-label">Zielgewicht (kg)</span>
+            <input type="number" step="0.1" id="target-weight-input" placeholder="z.B. 78">
+          </div>
+          <div class="input-group">
+            <span class="input-label">Kcal Ziel (tägl.)</span>
+            <input type="number" id="target-kcal-input" placeholder="z.B. 2800">
+          </div>
+        </div>
+        <button class="btn-small" style="width: 100%; margin-bottom: 4px;" onclick="saveGoals()">Ziele Sichern</button>
+        <div style="font-size: 0.75rem; color: var(--sub); margin-top: 4px;" id="protein-target-text">Proteinziel: 0 g (basiert auf Zielgewicht)</div>
+      </div>
+
+      <!-- KÖRPERGEWICHTSVERLAUF -->
       <div class="card">
         <div class="card-title">
           <span>Körpergewichtsverlauf</span>
@@ -148,16 +170,18 @@
         <div class="chart-container"><canvas id="weightChart"></canvas></div>
       </div>
 
+      <!-- AKTUELLES GEWICHT EINTRAGEN -->
       <div class="card">
-        <div class="card-title">Gewicht eintragen</div>
-        <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-          <input type="number" step="0.1" id="user-weight" placeholder="Gewicht (kg)">
+        <div class="card-title">Aktuelles Gewicht eintragen</div>
+        <div style="display: flex; gap: 6px;">
+          <input type="number" step="0.1" id="user-weight" placeholder="Heutiges Gewicht (kg)">
           <button class="btn-small" onclick="saveWeight()">Sichern</button>
         </div>
-        <div style="font-size: 0.78rem; color: var(--sub);" id="protein-target-text">Täglicher Zielbedarf: 0 g</div>
       </div>
 
+      <!-- NÄHRWERT TRACKER (PROTEIN & KCAL) -->
       <div class="card">
+        <!-- PROTEIN INTAKE -->
         <div class="card-title">
           <span>Protein Intake (Heute)</span>
           <span id="protein-count-text" style="color: var(--accent); font-weight:800;">0 / 0 g</span>
@@ -165,9 +189,22 @@
         <div class="progress-bar-bg">
           <div class="progress-bar-fill" id="protein-progress"></div>
         </div>
-        <div style="display: flex; gap: 6px; margin-top: 8px;">
+        <div style="display: flex; gap: 6px; margin-bottom: 16px;">
           <input type="number" id="protein-input" placeholder="Gramm (z.B. 40)">
           <button class="btn-small" onclick="addProtein()">+ Hinzufügen</button>
+        </div>
+
+        <!-- KCAL INTAKE -->
+        <div class="card-title">
+          <span>Kalorien Intake (Heute)</span>
+          <span id="kcal-count-text" style="color: var(--orange); font-weight:800;">0 / 0 kcal</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill-kcal" id="kcal-progress"></div>
+        </div>
+        <div style="display: flex; gap: 6px;">
+          <input type="number" id="kcal-input" placeholder="Kcal (z.B. 650)">
+          <button class="btn-small" style="background: var(--orange);" onclick="addKcal()">+ Hinzufügen</button>
         </div>
       </div>
     </div>
@@ -178,7 +215,6 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqcWpyZ2Zpd2xocXZjaGl2eHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MjAzMzUsImV4cCI6MjEwMDk5NjMzNX0.3UxQM7UWKsdImLulIKakDNDfPU73Hnt6mUyHQ7ptgNU';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // MAPPING DER VORDEFINIERTEN ACCOUNTS
     const VALID_USERS = {
       "elias": { email: "elias@gymtracker.app", pass: "Elias123!", name: "Elias" },
       "anh": { email: "anh@gymtracker.app", pass: "Anh12345!", name: "Anh" },
@@ -214,7 +250,10 @@
     let dbHistory = [];
     let weightHistory = [];
     let userWeight = 75;
+    let targetWeight = 75;
+    let targetKcal = 2500;
     let todayProtein = 0;
+    let todayKcal = 0;
     let currentUser = null;
     let myChart = null;
     let myWeightChart = null;
@@ -250,26 +289,19 @@
         return alert("Ungültige Zugangsdaten! Erlaubt sind Elias, Anh und Denni.");
       }
 
-      // Versuche Login
       let { data, error } = await supabaseClient.auth.signInWithPassword({
         email: account.email,
         password: account.pass
       });
 
-      // Falls Account in Supabase noch nicht existiert, registriere ihn automatisch
       if (error) {
-        const { data: signUpData, error: signUpErr } = await supabaseClient.auth.signUp({
+        await supabaseClient.auth.signUp({
           email: account.email,
           password: account.pass,
           options: { data: { name: account.name } }
         });
 
-        if (signUpErr) {
-          return alert("Fehler beim Erstellen des Accounts: " + signUpErr.message);
-        }
-        
-        // Nach Registrierung erneut einloggen
-        const { data: retryData } = await supabaseClient.auth.signInWithPassword({
+        await supabaseClient.auth.signInWithPassword({
           email: account.email,
           password: account.pass
         });
@@ -295,6 +327,17 @@
       const { data: workouts } = await supabaseClient.from('workouts').select('*');
       dbHistory = workouts || [];
 
+      // Profil-Ziele laden (falls vorhanden)
+      const { data: goals } = await supabaseClient.from('user_goals').select('*').eq('user_id', currentUser.id).single();
+      if (goals) {
+        targetWeight = goals.target_weight || 75;
+        targetKcal = goals.target_kcal || 2500;
+      }
+
+      document.getElementById('target-weight-input').value = targetWeight;
+      document.getElementById('target-kcal-input').value = targetKcal;
+
+      // Daily Logs laden
       const { data: logs } = await supabaseClient.from('daily_logs').select('*');
       if (logs && logs.length > 0) {
         weightHistory = logs.filter(l => l.weight && l.weight > 0).sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -305,13 +348,32 @@
         }
 
         const todayLog = logs.find(l => l.date === todayStr);
-        if (todayLog) todayProtein = todayLog.protein || 0;
+        if (todayLog) {
+          todayProtein = todayLog.protein || 0;
+          todayKcal = todayLog.kcal || 0;
+        }
       }
 
       document.getElementById('user-weight').value = userWeight;
-      updateProteinTarget();
-      updateProteinUI();
+      updateNutritionUI();
       renderWeightChart();
+    }
+
+    async function saveGoals() {
+      const tw = parseFloat(document.getElementById('target-weight-input').value) || 75;
+      const tk = parseInt(document.getElementById('target-kcal-input').value) || 2500;
+
+      targetWeight = tw;
+      targetKcal = tk;
+
+      await supabaseClient.from('user_goals').upsert({
+        user_id: currentUser.id,
+        target_weight: targetWeight,
+        target_kcal: targetKcal
+      });
+
+      updateNutritionUI();
+      alert("Ziele erfolgreich gespeichert!");
     }
 
     function renderWeightChart() {
@@ -374,32 +436,43 @@
       const val = parseFloat(document.getElementById('user-weight').value);
       if (!val) return;
       userWeight = val;
-      await supabaseClient.from('daily_logs').upsert({ date: todayStr, weight: userWeight, protein: todayProtein, user_id: currentUser.id });
-      updateProteinTarget();
+      await supabaseClient.from('daily_logs').upsert({ date: todayStr, weight: userWeight, protein: todayProtein, kcal: todayKcal, user_id: currentUser.id });
       await loadAllData();
-      alert("Gewicht gesichert!");
-    }
-
-    function updateProteinTarget() {
-      const target = Math.round(userWeight * 2.0);
-      document.getElementById('protein-target-text').innerText = `Täglicher Zielbedarf: ${target} g (2,0g / kg)`;
-      updateProteinUI();
+      alert("Aktuelles Gewicht gesichert!");
     }
 
     async function addProtein() {
       const val = parseInt(document.getElementById('protein-input').value);
       if (!val) return;
       todayProtein += val;
-      await supabaseClient.from('daily_logs').upsert({ date: todayStr, weight: userWeight, protein: todayProtein, user_id: currentUser.id });
+      await supabaseClient.from('daily_logs').upsert({ date: todayStr, weight: userWeight, protein: todayProtein, kcal: todayKcal, user_id: currentUser.id });
       document.getElementById('protein-input').value = '';
-      updateProteinUI();
+      updateNutritionUI();
     }
 
-    function updateProteinUI() {
-      const target = Math.round(userWeight * 2.0);
-      document.getElementById('protein-count-text').innerText = `${todayProtein} / ${target} g`;
-      const pct = Math.min(100, Math.round((todayProtein / target) * 100));
-      document.getElementById('protein-progress').style.width = pct + '%';
+    async function addKcal() {
+      const val = parseInt(document.getElementById('kcal-input').value);
+      if (!val) return;
+      todayKcal += val;
+      await supabaseClient.from('daily_logs').upsert({ date: todayStr, weight: userWeight, protein: todayProtein, kcal: todayKcal, user_id: currentUser.id });
+      document.getElementById('kcal-input').value = '';
+      updateNutritionUI();
+    }
+
+    function updateNutritionUI() {
+      // Proteinziel berechnet sich aus dem Zielgewicht (2g/kg)
+      const proteinTarget = Math.round(targetWeight * 2.0);
+      document.getElementById('protein-target-text').innerText = `Proteinziel: ${proteinTarget} g (basiert auf ${targetWeight} kg Zielgewicht)`;
+      
+      // Protein Progress
+      document.getElementById('protein-count-text').innerText = `${todayProtein} / ${proteinTarget} g`;
+      const pPct = Math.min(100, Math.round((todayProtein / proteinTarget) * 100));
+      document.getElementById('protein-progress').style.width = pPct + '%';
+
+      // Kcal Progress
+      document.getElementById('kcal-count-text').innerText = `${todayKcal} / ${targetKcal} kcal`;
+      const kPct = Math.min(100, Math.round((todayKcal / targetKcal) * 100));
+      document.getElementById('kcal-progress').style.width = kPct + '%';
     }
 
     function switchDay(day) {
