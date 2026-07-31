@@ -6,6 +6,8 @@
   <title>Gym & Nutrition Pro</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Barcode Scanner Bibliothek -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
@@ -83,6 +85,10 @@
     .user-badge { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: rgba(99, 102, 241, 0.15); padding: 4px 8px; border-radius: 6px; }
     .input-group { display: flex; flex-direction: column; gap: 2px; width: 100%; }
     .input-label { font-size: 0.72rem; color: var(--sub); font-weight: 600; margin-bottom: 2px; }
+
+    /* Scanner UI */
+    #scanner-container { display: none; margin-top: 10px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-accent); }
+    #reader { width: 100%; background: #000; }
   </style>
 </head>
 <body>
@@ -233,6 +239,15 @@
           <input type="number" id="kcal-input" placeholder="Kcal (z.B. 650)">
           <button class="btn-small" style="background: var(--orange);" onclick="addKcal()">+ Hinzufügen</button>
         </div>
+
+        <!-- BARCODE SCANNER BUTTON & KAMERA CONTAINER -->
+        <div style="margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px;">
+          <button class="btn-small" style="width: 100%; background: linear-gradient(135deg, var(--accent), #4F46E5); padding: 12px; margin-bottom: 0;" onclick="toggleBarcodeScanner()">📷 Barcode / QR-Code scannen</button>
+          <div id="scanner-container">
+            <div id="reader"></div>
+            <button class="btn-outline" style="width: 100%; margin-top: 6px; color: var(--red); border-color: rgba(239, 68, 68, 0.3);" onclick="stopBarcodeScanner()">Scanner schließen</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -248,7 +263,6 @@
       "denni": { email: "denni@gymtracker.app", pass: "Denni123!", name: "Denni" }
     };
 
-    // Standard-Pläne falls noch keine in der DB angelegt wurden
     const DEFAULT_PLANS = {
       A: {
         label: "Push",
@@ -295,6 +309,8 @@
     let currentUser = null;
     let myChart = null;
     let myWeightChart = null;
+
+    let html5QrcodeScanner = null;
 
     const todayStr = new Date().toISOString().split('T')[0];
 
@@ -377,7 +393,6 @@
           userPlans[p.day_key] = { label: p.day_label, exercises: p.exercises };
         });
       } else {
-        // Falls noch keine eigenen Pläne existieren, Defaults hochladen
         userPlans = JSON.parse(JSON.stringify(DEFAULT_PLANS));
         for (const [key, plan] of Object.entries(userPlans)) {
           await supabaseClient.from('user_plans').upsert({
@@ -447,7 +462,6 @@
         container.appendChild(btn);
       });
 
-      // Button für neuen Tag
       const addBtn = document.createElement('button');
       addBtn.className = 'day-btn day-btn-add';
       addBtn.innerText = '+ Tag';
@@ -554,7 +568,6 @@
 
       userPlans[currentDay].exercises.push(newEx);
 
-      // Cloud Speichern
       await supabaseClient.from('user_plans').upsert({
         user_id: currentUser.id,
         day_key: currentDay,
@@ -575,7 +588,6 @@
 
       userPlans[currentDay].exercises.splice(exIdx, 1);
 
-      // Cloud Speichern
       await supabaseClient.from('user_plans').upsert({
         user_id: currentUser.id,
         day_key: currentDay,
@@ -813,6 +825,81 @@
       document.getElementById('kcal-count-text').innerText = `${todayKcal} / ${targetKcal} kcal`;
       const kPct = Math.min(100, Math.round((todayKcal / targetKcal) * 100));
       document.getElementById('kcal-progress').style.width = kPct + '%';
+    }
+
+    // BARCODE SCANNER LOGIK
+    function toggleBarcodeScanner() {
+      const container = document.getElementById('scanner-container');
+      if (container.style.display === 'block') {
+        stopBarcodeScanner();
+      } else {
+        startBarcodeScanner();
+      }
+    }
+
+    function startBarcodeScanner() {
+      document.getElementById('scanner-container').style.display = 'block';
+      html5QrcodeScanner = new Html5Qrcode("reader");
+      
+      html5QrcodeScanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 150 } },
+        onScanSuccess
+      ).catch(err => {
+        alert("Kamera-Fehler: Bitte erlaube der App den Zugriff auf deine Kamera.");
+        stopBarcodeScanner();
+      });
+    }
+
+    async function stopBarcodeScanner() {
+      if (html5QrcodeScanner) {
+        try {
+          await html5QrcodeScanner.stop();
+        } catch(e) {}
+        html5QrcodeScanner = null;
+      }
+      document.getElementById('scanner-container').style.display = 'none';
+    }
+
+    async function onScanSuccess(decodedText) {
+      await stopBarcodeScanner();
+
+      try {
+        const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${decodedText}.json`);
+        const data = await res.json();
+
+        if (data.status === 1) {
+          const p = data.product;
+          const name = p.product_name || "Unbekanntes Produkt";
+          const pPer100 = p.nutriments['proteins_100g'] || 0;
+          const kPer100 = p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'] || 0;
+
+          const gramsStr = prompt(`Produkt gefunden: ${name}\n\nNährwerte (pro 100g):\n- Protein: ${pPer100}g\n- Kalorien: ${kPer100} kcal\n\nWie viel Gramm hast du gegessen?`, "100");
+          
+          if (gramsStr) {
+            const grams = parseFloat(gramsStr);
+            if (!isNaN(grams) && grams > 0) {
+              const addP = Math.round((pPer100 * grams) / 100);
+              const addK = Math.round((kPer100 * grams) / 100);
+
+              todayProtein += addP;
+              todayKcal += addK;
+
+              await supabaseClient.from('daily_logs').upsert(
+                { date: todayStr, weight: userWeight, protein: todayProtein, kcal: todayKcal, user_id: currentUser.id },
+                { onConflict: 'date,user_id' }
+              );
+
+              updateNutritionUI();
+              alert(`Hinzugefügt für ${name} (${grams}g):\n+${addP}g Protein\n+${addK} kcal`);
+            }
+          }
+        } else {
+          alert("Produkt wurde leider nicht in der Lebensmittel-Datenbank gefunden.");
+        }
+      } catch (err) {
+        alert("Fehler beim Abrufen der Produktdaten.");
+      }
     }
 
     window.onload = init;
