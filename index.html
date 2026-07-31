@@ -85,31 +85,44 @@
     .input-group { display: flex; flex-direction: column; gap: 2px; width: 100%; }
     .input-label { font-size: 0.72rem; color: var(--sub); font-weight: 600; margin-bottom: 2px; }
 
-    /* VOLLBILD SCANNER OVERLAY */
+    /* PERFEKTES VOLLBILD OVERLAY */
     #scanner-overlay { 
       display: none; 
       position: fixed; 
       top: 0; 
       left: 0; 
+      right: 0; 
+      bottom: 0; 
       width: 100vw; 
       height: 100vh; 
       background: #000; 
-      z-index: 9999; 
-      flex-direction: column; 
-      justify-content: center; 
-      align-items: center; 
+      z-index: 99999; 
+      overflow: hidden; 
     }
-    #reader { width: 100%; max-width: 500px; height: 100%; }
+    
+    #reader { 
+      width: 100% !important; 
+      height: 100% !important; 
+      border: none !important; 
+    }
+    
+    #reader video { 
+      width: 100% !important; 
+      height: 100% !important; 
+      object-fit: cover !important; 
+    }
+
     #close-scanner-btn { 
       position: absolute; 
-      top: max(20px, env(safe-area-inset-top)); 
-      right: 20px; 
-      z-index: 10000; 
-      background: rgba(0,0,0,0.6); 
+      top: max(16px, env(safe-area-inset-top)); 
+      right: 16px; 
+      z-index: 100000; 
+      background: rgba(0,0,0,0.7); 
       color: #FFF; 
-      border: 1px solid rgba(255,255,255,0.2); 
-      font-size: 1.2rem; 
-      padding: 8px 14px; 
+      border: 1px solid rgba(255,255,255,0.25); 
+      font-size: 0.9rem; 
+      font-weight: 700; 
+      padding: 10px 18px; 
       border-radius: 99px; 
       cursor: pointer; 
       backdrop-filter: blur(10px);
@@ -267,15 +280,15 @@
     </div>
   </div>
 
-  <!-- VOLLBILD SCANNER OVERLAY CONTAINER -->
+  <!-- VOLLBILD SCANNER OVERLAY -->
   <div id="scanner-overlay">
     <button id="close-scanner-btn" onclick="stopBarcodeScanner()">✕ Schließen</button>
     <div id="reader"></div>
   </div>
 
   <script>
-    const SUPABASE_URL = 'https://djqjrgfiwlhqvchivxqe.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqcWpyZ2Zpd2xocXZjaGl2eHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MjAzMzUsImV4cCI6MjEwMDk5NjMzNX0.3UxQM7UWKsdImLulIKakDNDfPU73Hnt6mUyHQ7ptgNU';
+    const SUPABASE_URL = 'DEINE_SUPABASE_URL_HIER';
+    const SUPABASE_ANON_KEY = 'DEIN_SUPABASE_ANON_KEY_HIER';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const VALID_USERS = {
@@ -845,12 +858,12 @@
 
     // VOLLBILD SCANNER LOGIK
     function startBarcodeScanner() {
-      document.getElementById('scanner-overlay').style.display = 'flex';
+      document.getElementById('scanner-overlay').style.display = 'block';
       html5QrcodeScanner = new Html5Qrcode("reader");
       
       html5QrcodeScanner.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 150 } },
+        { fps: 15, qrbox: { width: 250, height: 160 } },
         onScanSuccess
       ).catch(err => {
         alert("Kamera-Fehler: Bitte erlaube der App den Zugriff auf deine Kamera.");
