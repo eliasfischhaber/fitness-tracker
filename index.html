@@ -41,7 +41,7 @@
     .control-panel { background: var(--card); border-radius: 16px; padding: 12px; border: 1px solid var(--border); margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; width: 100%; }
     .panel-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
     
-    input[type="date"], input[type="number"], input[type="email"], input[type="password"], select { 
+    input[type="date"], input[type="number"], input[type="text"], input[type="password"], select { 
       background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; outline: none; width: 100%; min-width: 0; -webkit-appearance: none; margin-bottom: 8px;
     }
     input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
@@ -69,25 +69,29 @@
     .btn-outline { padding: 6px 10px; background: transparent; color: var(--sub); border: 1px solid var(--border); border-radius: 6px; font-size: 0.7rem; cursor: pointer; }
     .save-btn { width: 100%; padding: 14px; background: var(--accent); color: #FFF; border: none; border-radius: 12px; font-size: 0.9rem; font-weight: 800; cursor: pointer; margin-top: 8px; box-shadow: 0 4px 20px var(--accent-glow); }
     .chart-container { height: 140px; width: 100%; margin-top: 6px; }
+
+    .user-badge { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: rgba(99, 102, 241, 0.15); padding: 4px 8px; border-radius: 6px; }
   </style>
 </head>
 <body>
 
-  <!-- LOGIN & REGISTRIERUNG SCREEN -->
+  <!-- LOGIN SCREEN -->
   <div id="auth-screen">
     <div class="card">
-      <div class="card-title" style="justify-content: center; font-size: 1.2rem;">GymTracker Login</div>
-      <input type="email" id="auth-email" placeholder="E-Mail Adresse">
+      <div class="card-title" style="justify-content: center; font-size: 1.2rem; margin-bottom: 16px;">GymTracker Login</div>
+      <input type="text" id="auth-user" placeholder="Benutzername (z.B. Elias)">
       <input type="password" id="auth-password" placeholder="Passwort">
-      <button class="save-btn" onclick="handleLogin()">Anmelden</button>
-      <button class="save-btn" style="background: transparent; border: 1px solid var(--border); box-shadow: none; margin-top: 6px;" onclick="handleSignUp()">Neuen Account erstellen</button>
+      <button class="save-btn" onclick="handleCustomLogin()">Anmelden</button>
     </div>
   </div>
 
   <!-- HAUPT APP -->
   <div id="app-screen" style="display: none;">
     <div class="top-header">
-      <div class="app-title">GymTracker Pro</div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div class="app-title">GymTracker Pro</div>
+        <div id="current-user-tag" class="user-badge"></div>
+      </div>
       <button class="btn-outline" onclick="handleLogout()">Abmelden</button>
     </div>
 
@@ -136,7 +140,6 @@
         <div class="week-strip" id="week-strip"></div>
       </div>
 
-      <!-- NEU: GEWICHTSTRACKER DIAGRAMM -->
       <div class="card">
         <div class="card-title">
           <span>Körpergewichtsverlauf</span>
@@ -171,9 +174,16 @@
   </div>
 
   <script>
-    const SUPABASE_URL = 'DEINE_SUPABASE_URL_HIER';
-    const SUPABASE_ANON_KEY = 'DEIN_SUPABASE_ANON_KEY_HIER';
+    const SUPABASE_URL = 'https://djqjrgfiwlhqvchivxqe.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqcWpyZ2Zpd2xocXZjaGl2eHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MjAzMzUsImV4cCI6MjEwMDk5NjMzNX0.3UxQM7UWKsdImLulIKakDNDfPU73Hnt6mUyHQ7ptgNU';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // MAPPING DER VORDEFINIERTEN ACCOUNTS
+    const VALID_USERS = {
+      "elias": { email: "elias@gymtracker.app", pass: "Elias123!", name: "Elias" },
+      "anh": { email: "anh@gymtracker.app", pass: "Anh12345!", name: "Anh" },
+      "denni": { email: "denni@gymtracker.app", pass: "Denni123!", name: "Denni" }
+    };
 
     const exercisesConfig = {
       A: [
@@ -217,7 +227,11 @@
         currentUser = user;
         document.getElementById('auth-screen').style.display = 'none';
         document.getElementById('app-screen').style.display = 'block';
+        
+        const username = user.user_metadata?.name || "User";
+        document.getElementById('current-user-tag').innerText = username;
         document.getElementById('workout-date').value = todayStr;
+        
         await loadAllData();
         renderWeekStrip();
         switchDay('A');
@@ -227,20 +241,41 @@
       }
     }
 
-    async function handleLogin() {
-      const email = document.getElementById('auth-email').value;
-      const password = document.getElementById('auth-password').value;
-      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-      if (error) alert("Login Fehler: " + error.message);
-      else init();
-    }
+    async function handleCustomLogin() {
+      const usernameInput = document.getElementById('auth-user').value.trim().toLowerCase();
+      const passwordInput = document.getElementById('auth-password').value.trim();
 
-    async function handleSignUp() {
-      const email = document.getElementById('auth-email').value;
-      const password = document.getElementById('auth-password').value;
-      const { data, error } = await supabaseClient.auth.signUp({ email, password });
-      if (error) alert("Registrierung Fehler: " + error.message);
-      else alert("Account erstellt! Du kannst dich jetzt anmelden.");
+      const account = VALID_USERS[usernameInput];
+      if (!account || (passwordInput.toLowerCase() !== usernameInput)) {
+        return alert("Ungültige Zugangsdaten! Erlaubt sind Elias, Anh und Denni.");
+      }
+
+      // Versuche Login
+      let { data, error } = await supabaseClient.auth.signInWithPassword({
+        email: account.email,
+        password: account.pass
+      });
+
+      // Falls Account in Supabase noch nicht existiert, registriere ihn automatisch
+      if (error) {
+        const { data: signUpData, error: signUpErr } = await supabaseClient.auth.signUp({
+          email: account.email,
+          password: account.pass,
+          options: { data: { name: account.name } }
+        });
+
+        if (signUpErr) {
+          return alert("Fehler beim Erstellen des Accounts: " + signUpErr.message);
+        }
+        
+        // Nach Registrierung erneut einloggen
+        const { data: retryData } = await supabaseClient.auth.signInWithPassword({
+          email: account.email,
+          password: account.pass
+        });
+      }
+
+      init();
     }
 
     async function handleLogout() {
@@ -262,7 +297,6 @@
 
       const { data: logs } = await supabaseClient.from('daily_logs').select('*');
       if (logs && logs.length > 0) {
-        // Filtere alle Logs, die ein eingetragenes Gewicht enthalten
         weightHistory = logs.filter(l => l.weight && l.weight > 0).sort((a, b) => new Date(a.date) - new Date(b.date));
         
         if (weightHistory.length > 0) {
