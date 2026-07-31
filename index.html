@@ -55,7 +55,6 @@
     .day-pill.today { border-color: var(--accent); background: var(--accent-glow); color: #FFF; font-weight: 800; }
     .day-name { color: var(--sub); font-size: 0.6rem; margin-bottom: 2px; text-transform: uppercase; }
 
-    /* Progress Bars */
     .progress-bar-bg { width: 100%; height: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); margin: 8px 0 12px 0; }
     .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); width: 0%; border-radius: 99px; transition: width 0.4s ease; }
     .progress-bar-fill-kcal { height: 100%; background: linear-gradient(90deg, var(--accent), var(--orange)); width: 0%; border-radius: 99px; transition: width 0.4s ease; }
@@ -258,7 +257,6 @@
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Funktion zur Umwandlung von YYYY-MM-DD in DD.MM.YYYY
     function formatDateGerman(dateStr) {
       if (!dateStr) return '';
       const parts = dateStr.split('-');
@@ -330,21 +328,23 @@
     }
 
     async function loadAllData() {
-      const { data: workouts } = await supabaseClient.from('workouts').select('*');
+      // 1. Workouts für den User laden
+      const { data: workouts } = await supabaseClient.from('workouts').select('*').eq('user_id', currentUser.id);
       dbHistory = workouts || [];
 
-      const { data: goals } = await supabaseClient.from('user_goals').select('*').eq('user_id', currentUser.id).single();
-      if (goals) {
-        targetWeight = goals.target_weight || 75;
-        targetKcal = goals.target_kcal || 2500;
+      // 2. User Ziele laden
+      const { data: goals } = await supabaseClient.from('user_goals').select('*').eq('user_id', currentUser.id);
+      if (goals && goals.length > 0) {
+        targetWeight = goals[0].target_weight || 75;
+        targetKcal = goals[0].target_kcal || 2500;
       }
 
       document.getElementById('target-weight-input').value = targetWeight;
       document.getElementById('target-kcal-input').value = targetKcal;
 
-      const { data: logs } = await supabaseClient.from('daily_logs').select('*');
+      // 3. Daily Logs für den User laden
+      const { data: logs } = await supabaseClient.from('daily_logs').select('*').eq('user_id', currentUser.id);
       if (logs && logs.length > 0) {
-        // Chronologisch nach echtem Datum sortieren (alt -> neu)
         weightHistory = logs.filter(l => l.weight && l.weight > 0).sort((a, b) => new Date(a.date) - new Date(b.date));
         
         if (weightHistory.length > 0) {
@@ -356,7 +356,14 @@
         if (todayLog) {
           todayProtein = todayLog.protein || 0;
           todayKcal = todayLog.kcal || 0;
+        } else {
+          todayProtein = 0;
+          todayKcal = 0;
         }
+      } else {
+        weightHistory = [];
+        todayProtein = 0;
+        todayKcal = 0;
       }
 
       document.getElementById('user-weight').value = userWeight;
@@ -371,11 +378,10 @@
       targetWeight = tw;
       targetKcal = tk;
 
-      await supabaseClient.from('user_goals').upsert({
-        user_id: currentUser.id,
-        target_weight: targetWeight,
-        target_kcal: targetKcal
-      });
+      await supabaseClient.from('user_goals').upsert(
+        { user_id: currentUser.id, target_weight: targetWeight, target_kcal: targetKcal },
+        { onConflict: 'user_id' }
+      );
 
       updateNutritionUI();
       alert("Ziele erfolgreich gespeichert!");
@@ -385,7 +391,6 @@
       const ctx = document.getElementById('weightChart');
       if (!ctx) return;
       
-      // Datums-Labels auf deutsches Format umstellen (DD.MM.YYYY)
       const formattedDates = weightHistory.map(w => formatDateGerman(w.date));
       const weights = weightHistory.map(w => w.weight);
 
@@ -442,7 +447,12 @@
       const val = parseFloat(document.getElementById('user-weight').value);
       if (!val) return;
       userWeight = val;
-      await supabaseClient.from('daily_logs').upsert({ date: todayStr, weight: userWeight, protein: todayProtein, kcal: todayKcal, user_id: currentUser.id });
+
+      await supabaseClient.from('daily_logs').upsert(
+        { date: todayStr, weight: userWeight, protein: todayProtein, kcal: todayKcal, user_id: currentUser.id },
+        { onConflict: 'date,user_id' }
+      );
+
       await loadAllData();
       alert("Aktuelles Gewicht gesichert!");
     }
@@ -451,7 +461,12 @@
       const val = parseInt(document.getElementById('protein-input').value);
       if (!val) return;
       todayProtein += val;
-      await supabaseClient.from('daily_logs').upsert({ date: todayStr, weight: userWeight, protein: todayProtein, kcal: todayKcal, user_id: currentUser.id });
+
+      await supabaseClient.from('daily_logs').upsert(
+        { date: todayStr, weight: userWeight, protein: todayProtein, kcal: todayKcal, user_id: currentUser.id },
+        { onConflict: 'date,user_id' }
+      );
+
       document.getElementById('protein-input').value = '';
       updateNutritionUI();
     }
@@ -460,7 +475,12 @@
       const val = parseInt(document.getElementById('kcal-input').value);
       if (!val) return;
       todayKcal += val;
-      await supabaseClient.from('daily_logs').upsert({ date: todayStr, weight: userWeight, protein: todayProtein, kcal: todayKcal, user_id: currentUser.id });
+
+      await supabaseClient.from('daily_logs').upsert(
+        { date: todayStr, weight: userWeight, protein: todayProtein, kcal: todayKcal, user_id: currentUser.id },
+        { onConflict: 'date,user_id' }
+      );
+
       document.getElementById('kcal-input').value = '';
       updateNutritionUI();
     }
@@ -469,12 +489,10 @@
       const proteinTarget = Math.round(targetWeight * 2.0);
       document.getElementById('protein-target-text').innerText = `Proteinziel: ${proteinTarget} g (basiert auf ${targetWeight} kg Zielgewicht)`;
       
-      // Protein Progress
       document.getElementById('protein-count-text').innerText = `${todayProtein} / ${proteinTarget} g`;
       const pPct = Math.min(100, Math.round((todayProtein / proteinTarget) * 100));
       document.getElementById('protein-progress').style.width = pPct + '%';
 
-      // Kcal Progress
       document.getElementById('kcal-count-text').innerText = `${todayKcal} / ${targetKcal} kcal`;
       const kPct = Math.min(100, Math.round((todayKcal / targetKcal) * 100));
       document.getElementById('kcal-progress').style.width = kPct + '%';
