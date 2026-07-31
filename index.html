@@ -165,7 +165,7 @@
       <div class="card">
         <div class="card-title">
           <span>Körpergewichtsverlauf</span>
-          <span style="font-size:0.78rem; color:var(--accent); font-weight:800;" id="latest-weight-display">-- kg</span>
+          <span style="font-size:0.78rem; color:var(--green); font-weight:800;" id="latest-weight-display">-- kg</span>
         </div>
         <div class="chart-container"><canvas id="weightChart"></canvas></div>
       </div>
@@ -179,9 +179,8 @@
         </div>
       </div>
 
-      <!-- NÄHRWERT TRACKER (PROTEIN & KCAL) -->
+      <!-- NÄHRWERT TRACKER -->
       <div class="card">
-        <!-- PROTEIN INTAKE -->
         <div class="card-title">
           <span>Protein Intake (Heute)</span>
           <span id="protein-count-text" style="color: var(--accent); font-weight:800;">0 / 0 g</span>
@@ -194,7 +193,6 @@
           <button class="btn-small" onclick="addProtein()">+ Hinzufügen</button>
         </div>
 
-        <!-- KCAL INTAKE -->
         <div class="card-title">
           <span>Kalorien Intake (Heute)</span>
           <span id="kcal-count-text" style="color: var(--orange); font-weight:800;">0 / 0 kcal</span>
@@ -259,6 +257,14 @@
     let myWeightChart = null;
 
     const todayStr = new Date().toISOString().split('T')[0];
+
+    // Funktion zur Umwandlung von YYYY-MM-DD in DD.MM.YYYY
+    function formatDateGerman(dateStr) {
+      if (!dateStr) return '';
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return dateStr;
+      return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    }
 
     async function init() {
       const { data: { user } } = await supabaseClient.auth.getUser();
@@ -327,7 +333,6 @@
       const { data: workouts } = await supabaseClient.from('workouts').select('*');
       dbHistory = workouts || [];
 
-      // Profil-Ziele laden (falls vorhanden)
       const { data: goals } = await supabaseClient.from('user_goals').select('*').eq('user_id', currentUser.id).single();
       if (goals) {
         targetWeight = goals.target_weight || 75;
@@ -337,9 +342,9 @@
       document.getElementById('target-weight-input').value = targetWeight;
       document.getElementById('target-kcal-input').value = targetKcal;
 
-      // Daily Logs laden
       const { data: logs } = await supabaseClient.from('daily_logs').select('*');
       if (logs && logs.length > 0) {
+        // Chronologisch nach echtem Datum sortieren (alt -> neu)
         weightHistory = logs.filter(l => l.weight && l.weight > 0).sort((a, b) => new Date(a.date) - new Date(b.date));
         
         if (weightHistory.length > 0) {
@@ -380,14 +385,15 @@
       const ctx = document.getElementById('weightChart');
       if (!ctx) return;
       
-      const dates = weightHistory.map(w => w.date);
+      // Datums-Labels auf deutsches Format umstellen (DD.MM.YYYY)
+      const formattedDates = weightHistory.map(w => formatDateGerman(w.date));
       const weights = weightHistory.map(w => w.weight);
 
       if (myWeightChart) myWeightChart.destroy();
       myWeightChart = new Chart(ctx.getContext('2d'), {
         type: 'line',
         data: {
-          labels: dates.length ? dates : ['Keine Daten'],
+          labels: formattedDates.length ? formattedDates : ['Keine Daten'],
           datasets: [{
             data: weights.length ? weights : [userWeight],
             borderColor: '#10B981',
@@ -460,7 +466,6 @@
     }
 
     function updateNutritionUI() {
-      // Proteinziel berechnet sich aus dem Zielgewicht (2g/kg)
       const proteinTarget = Math.round(targetWeight * 2.0);
       document.getElementById('protein-target-text').innerText = `Proteinziel: ${proteinTarget} g (basiert auf ${targetWeight} kg Zielgewicht)`;
       
@@ -538,6 +543,7 @@
       const filteredHistory = dbHistory.filter(h => h.day_type === currentDay);
       
       const dates = [...new Set(filteredHistory.map(h => h.date))].sort((a, b) => new Date(a) - new Date(b));
+      const formattedDates = dates.map(d => formatDateGerman(d));
       let dataPoints = [];
 
       dates.forEach(d => {
@@ -565,7 +571,7 @@
       myChart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: dates.length ? dates : ['Keine Daten'],
+          labels: formattedDates.length ? formattedDates : ['Keine Daten'],
           datasets: [{ data: dataPoints.length ? dataPoints : [0], borderColor: '#6366F1', backgroundColor: 'rgba(99, 102, 241, 0.12)', fill: true, tension: 0.35, pointBackgroundColor: '#6366F1' }]
         },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#71717A' } }, y: { ticks: { color: '#71717A' } } } }
