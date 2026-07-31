@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Gym & Nutrition Cloud</title>
+  <title>Gym & Nutrition Multi-User</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -25,11 +25,14 @@
     html, body { width: 100%; max-width: 100%; overflow-x: hidden !important; background-color: var(--bg); color: var(--text); }
     body { padding: 12px; padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(90px, env(safe-area-inset-bottom)); }
 
+    /* Auth Screen */
+    #auth-screen { display: flex; flex-direction: column; justify-content: center; min-height: 80vh; max-width: 380px; margin: 0 auto; }
+    
     .top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
     .app-title { font-size: 1.25rem; font-weight: 800; background: linear-gradient(135deg, #FFF 30%, var(--sub)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     
     .nav-tabs { display: flex; gap: 4px; margin-bottom: 14px; background: rgba(255, 255, 255, 0.03); padding: 3px; border-radius: 12px; border: 1px solid var(--border); width: 100%; }
-    .tab-btn { flex: 1; padding: 10px 0; text-align: center; background: none; border: none; color: var(--sub); font-weight: 600; font-size: 0.8rem; border-radius: 99px; cursor: pointer; transition: all 0.2s ease; }
+    .tab-btn { flex: 1; padding: 10px 0; text-align: center; background: none; border: none; color: var(--sub); font-weight: 600; font-size: 0.8rem; border-radius: 99px; cursor: pointer; }
     .tab-btn.active { background: var(--accent); color: #FFF; font-weight: 700; box-shadow: 0 4px 15px var(--accent-glow); }
 
     .card { background: var(--card); border-radius: 16px; padding: 14px; border: 1px solid var(--border); margin-bottom: 12px; width: 100%; }
@@ -38,8 +41,8 @@
     .control-panel { background: var(--card); border-radius: 16px; padding: 12px; border: 1px solid var(--border); margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; width: 100%; }
     .panel-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
     
-    input[type="date"], input[type="number"], select { 
-      background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; outline: none; width: 100%; min-width: 0; -webkit-appearance: none;
+    input[type="date"], input[type="number"], input[type="email"], input[type="password"], select { 
+      background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; outline: none; width: 100%; min-width: 0; -webkit-appearance: none; margin-bottom: 8px;
     }
     input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
 
@@ -59,109 +62,118 @@
     .exercise-title { font-size: 0.88rem; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; }
     .set-container { margin-bottom: 8px; width: 100%; }
     .set-row { display: grid; grid-template-columns: 42px 1fr 1fr; gap: 6px; align-items: center; width: 100%; }
-    .set-row input { text-align: center; font-weight: 700; }
+    .set-row input { text-align: center; font-weight: 700; margin-bottom: 0; }
     .last-val-hint { font-size: 0.68rem; color: var(--sub); margin-top: 2px; text-align: right; grid-column: 2 / 4; }
 
     .btn-small { padding: 8px 12px; background: var(--accent); color: #FFF; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.8rem; white-space: nowrap; }
+    .btn-outline { padding: 6px 10px; background: transparent; color: var(--sub); border: 1px solid var(--border); border-radius: 6px; font-size: 0.7rem; cursor: pointer; }
     .save-btn { width: 100%; padding: 14px; background: var(--accent); color: #FFF; border: none; border-radius: 12px; font-size: 0.9rem; font-weight: 800; cursor: pointer; margin-top: 8px; box-shadow: 0 4px 20px var(--accent-glow); }
     .chart-container { height: 140px; width: 100%; margin-top: 6px; }
-
-    .status-badge { font-size: 0.7rem; padding: 3px 8px; border-radius: 6px; font-weight: 600; background: rgba(255,255,255,0.05); color: var(--sub); }
   </style>
 </head>
 <body>
 
-  <div class="top-header">
-    <div class="app-title">GymTracker Pro</div>
-    <div id="status-tag" class="status-badge">Lade...</div>
+  <!-- LOGIN & REGISTRIERUNG SCREEN -->
+  <div id="auth-screen">
+    <div class="card">
+      <div class="card-title" style="justify-content: center; font-size: 1.2rem;">GymTracker Login</div>
+      <input type="email" id="auth-email" placeholder="E-Mail Adresse">
+      <input type="password" id="auth-password" placeholder="Passwort">
+      <button class="save-btn" onclick="handleLogin()">Anmelden</button>
+      <button class="save-btn" style="background: transparent; border: 1px solid var(--border); box-shadow: none; margin-top: 6px;" onclick="handleSignUp()">Neuen Account erstellen</button>
+    </div>
   </div>
 
-  <div class="nav-tabs">
-    <button class="tab-btn active" id="tab-btn-workout" onclick="switchMainTab('WORKOUT')">🏋️ Workout</button>
-    <button class="tab-btn" id="tab-btn-dash" onclick="switchMainTab('DASHBOARD')">📊 Dashboard</button>
-  </div>
+  <!-- HAUPT APP -->
+  <div id="app-screen" style="display: none;">
+    <div class="top-header">
+      <div class="app-title">GymTracker Pro</div>
+      <button class="btn-outline" onclick="handleLogout()">Abmelden</button>
+    </div>
 
-  <!-- REITER 1: WORKOUT -->
-  <div id="view-workout">
-    <div class="control-panel">
-      <div class="panel-row">
-        <span style="font-size: 0.8rem; font-weight: 600; color: var(--sub); white-space: nowrap;">Datum:</span>
-        <input type="date" id="workout-date" onchange="renderWorkout()">
-      </div>
-      <div class="panel-row">
-        <div class="day-selector">
-          <button class="day-btn active" onclick="switchDay('A')">Push</button>
-          <button class="day-btn" onclick="switchDay('B')">Pull</button>
-          <button class="day-btn" onclick="switchDay('C')">Legs</button>
+    <div class="nav-tabs">
+      <button class="tab-btn active" id="tab-btn-workout" onclick="switchMainTab('WORKOUT')">🏋️ Workout</button>
+      <button class="tab-btn" id="tab-btn-dash" onclick="switchMainTab('DASHBOARD')">📊 Dashboard</button>
+    </div>
+
+    <!-- REITER 1: WORKOUT -->
+    <div id="view-workout">
+      <div class="control-panel">
+        <div class="panel-row">
+          <span style="font-size: 0.8rem; font-weight: 600; color: var(--sub); white-space: nowrap;">Datum:</span>
+          <input type="date" id="workout-date" onchange="renderWorkout()">
+        </div>
+        <div class="panel-row">
+          <div class="day-selector">
+            <button class="day-btn active" onclick="switchDay('A')">Push</button>
+            <button class="day-btn" onclick="switchDay('B')">Pull</button>
+            <button class="day-btn" onclick="switchDay('C')">Legs</button>
+          </div>
         </div>
       </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>Progress</span>
+          <span style="font-size:0.78rem; color:var(--green); font-weight:800;" id="growth-val">+0.0%</span>
+        </div>
+        <select id="view-mode" onchange="handleModeChange()" style="margin-bottom:6px;">
+          <option value="PLAN">Gesamter Trainingsplan</option>
+          <option value="EXERCISE">Einzelne Übung</option>
+        </select>
+        <select id="exercise-picker" style="display: none; margin-bottom:6px;" onchange="renderChart()"></select>
+        <div class="chart-container"><canvas id="progressChart"></canvas></div>
+      </div>
+
+      <div id="workout-container"></div>
+      <button class="save-btn" onclick="saveData()">Einheit Speichern</button>
     </div>
 
-    <div class="card">
-      <div class="card-title">
-        <span>Progress</span>
-        <span style="font-size:0.78rem; color:var(--green); font-weight:800;" id="growth-val">+0.0%</span>
+    <!-- REITER 2: DASHBOARD -->
+    <div id="view-dashboard" style="display: none;">
+      <div class="card">
+        <div class="card-title">Wochenansicht</div>
+        <div class="week-strip" id="week-strip"></div>
       </div>
-      <select id="view-mode" onchange="handleModeChange()" style="margin-bottom:6px;">
-        <option value="PLAN">Gesamter Trainingsplan</option>
-        <option value="EXERCISE">Einzelne Übung</option>
-      </select>
-      <select id="exercise-picker" style="display: none; margin-bottom:6px;" onchange="renderChart()"></select>
-      <div class="chart-container"><canvas id="progressChart"></canvas></div>
-    </div>
 
-    <div id="workout-container"></div>
-    <button class="save-btn" onclick="saveData()">Einheit Speichern</button>
-  </div>
-
-  <!-- REITER 2: DASHBOARD -->
-  <div id="view-dashboard" style="display: none;">
-    <div class="card">
-      <div class="card-title">Wochenansicht</div>
-      <div class="week-strip" id="week-strip"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Körpergewicht & Ziel</div>
-      <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-        <input type="number" step="0.1" id="user-weight" placeholder="Gewicht (kg)">
-        <button class="btn-small" onclick="saveWeight()">Sichern</button>
+      <!-- NEU: GEWICHTSTRACKER DIAGRAMM -->
+      <div class="card">
+        <div class="card-title">
+          <span>Körpergewichtsverlauf</span>
+          <span style="font-size:0.78rem; color:var(--accent); font-weight:800;" id="latest-weight-display">-- kg</span>
+        </div>
+        <div class="chart-container"><canvas id="weightChart"></canvas></div>
       </div>
-      <div style="font-size: 0.78rem; color: var(--sub);" id="protein-target-text">Täglicher Zielbedarf: 0 g</div>
-    </div>
 
-    <div class="card">
-      <div class="card-title">
-        <span>Protein Intake (Heute)</span>
-        <span id="protein-count-text" style="color: var(--accent); font-weight:800;">0 / 0 g</span>
+      <div class="card">
+        <div class="card-title">Gewicht eintragen</div>
+        <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+          <input type="number" step="0.1" id="user-weight" placeholder="Gewicht (kg)">
+          <button class="btn-small" onclick="saveWeight()">Sichern</button>
+        </div>
+        <div style="font-size: 0.78rem; color: var(--sub);" id="protein-target-text">Täglicher Zielbedarf: 0 g</div>
       </div>
-      <div class="progress-bar-bg">
-        <div class="progress-bar-fill" id="protein-progress"></div>
-      </div>
-      <div style="display: flex; gap: 6px; margin-top: 8px;">
-        <input type="number" id="protein-input" placeholder="Gramm (z.B. 40)">
-        <button class="btn-small" onclick="addProtein()">+ Hinzufügen</button>
+
+      <div class="card">
+        <div class="card-title">
+          <span>Protein Intake (Heute)</span>
+          <span id="protein-count-text" style="color: var(--accent); font-weight:800;">0 / 0 g</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="protein-progress"></div>
+        </div>
+        <div style="display: flex; gap: 6px; margin-top: 8px;">
+          <input type="number" id="protein-input" placeholder="Gramm (z.B. 40)">
+          <button class="btn-small" onclick="addProtein()">+ Hinzufügen</button>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    // SUPABASE KONFIGURATION (Setze hier deine Daten ein falls genutzt!)
-    const SUPABASE_URL = 'https://djqjrgfiwlhqvchivxqe.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqcWpyZ2Zpd2xocXZjaGl2eHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MjAzMzUsImV4cCI6MjEwMDk5NjMzNX0.3UxQM7UWKsdImLulIKakDNDfPU73Hnt6mUyHQ7ptgNU';
-    
-    let supabaseClient = null;
-    let isCloudMode = false;
-
-    // Supabase sicher initialisieren
-    if (typeof window.supabase !== 'undefined' && SUPABASE_URL !== 'DEINE_SUPABASE_URL_HIER' && !SUPABASE_URL.includes('DEINE_SUPABASE')) {
-      try {
-        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        isCloudMode = true;
-      } catch (e) {
-        console.warn("Cloud init failed, falling back to LocalStorage:", e);
-      }
-    }
+    const SUPABASE_URL = 'DEINE_SUPABASE_URL_HIER';
+    const SUPABASE_ANON_KEY = 'DEIN_SUPABASE_ANON_KEY_HIER';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const exercisesConfig = {
       A: [
@@ -190,70 +202,115 @@
 
     let currentDay = 'A';
     let dbHistory = [];
-    let userWeight = parseFloat(localStorage.getItem('gym_weight') || '75');
+    let weightHistory = [];
+    let userWeight = 75;
     let todayProtein = 0;
+    let currentUser = null;
     let myChart = null;
+    let myWeightChart = null;
 
     const todayStr = new Date().toISOString().split('T')[0];
+
+    async function init() {
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      if (user) {
+        currentUser = user;
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('app-screen').style.display = 'block';
+        document.getElementById('workout-date').value = todayStr;
+        await loadAllData();
+        renderWeekStrip();
+        switchDay('A');
+      } else {
+        document.getElementById('auth-screen').style.display = 'flex';
+        document.getElementById('app-screen').style.display = 'none';
+      }
+    }
+
+    async function handleLogin() {
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) alert("Login Fehler: " + error.message);
+      else init();
+    }
+
+    async function handleSignUp() {
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
+      const { data, error } = await supabaseClient.auth.signUp({ email, password });
+      if (error) alert("Registrierung Fehler: " + error.message);
+      else alert("Account erstellt! Du kannst dich jetzt anmelden.");
+    }
+
+    async function handleLogout() {
+      await supabaseClient.auth.signOut();
+      location.reload();
+    }
 
     function switchMainTab(tab) {
       document.getElementById('view-workout').style.display = (tab === 'WORKOUT') ? 'block' : 'none';
       document.getElementById('view-dashboard').style.display = (tab === 'DASHBOARD') ? 'block' : 'none';
       document.getElementById('tab-btn-workout').classList.toggle('active', tab === 'WORKOUT');
       document.getElementById('tab-btn-dash').classList.toggle('active', tab === 'DASHBOARD');
-    }
-
-    async function init() {
-      // Heutiges Datum als Default eintragen
-      document.getElementById('workout-date').value = todayStr;
-      
-      const statusTag = document.getElementById('status-tag');
-      if (isCloudMode) {
-        statusTag.innerText = '☁️ Cloud';
-        statusTag.style.color = '#38BDF8';
-      } else {
-        statusTag.innerText = '📱 Lokal';
-        statusTag.style.color = '#10B981';
-      }
-
-      await loadAllData();
-      renderWeekStrip();
-      switchDay('A');
+      if (tab === 'DASHBOARD') renderWeightChart();
     }
 
     async function loadAllData() {
-      if (isCloudMode) {
-        try {
-          const { data: workouts, error } = await supabaseClient.from('workouts').select('*');
-          if (!error && workouts) dbHistory = workouts;
-          else dbHistory = JSON.parse(localStorage.getItem('gym_history') || '[]');
+      const { data: workouts } = await supabaseClient.from('workouts').select('*');
+      dbHistory = workouts || [];
 
-          const { data: logs } = await supabaseClient.from('daily_logs').select('*');
-          if (logs && logs.length > 0) {
-            const lastLogWithWeight = logs.filter(l => l.weight).pop();
-            if (lastLogWithWeight) userWeight = lastLogWithWeight.weight;
-            
-            const todayLog = logs.find(l => l.date === todayStr);
-            if (todayLog) todayProtein = todayLog.protein || 0;
-          }
-        } catch (err) {
-          console.warn("Cloud Load Error, fallback to LocalStorage", err);
-          loadLocalData();
+      const { data: logs } = await supabaseClient.from('daily_logs').select('*');
+      if (logs && logs.length > 0) {
+        // Filtere alle Logs, die ein eingetragenes Gewicht enthalten
+        weightHistory = logs.filter(l => l.weight && l.weight > 0).sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        if (weightHistory.length > 0) {
+          userWeight = weightHistory[weightHistory.length - 1].weight;
+          document.getElementById('latest-weight-display').innerText = `${userWeight} kg`;
         }
-      } else {
-        loadLocalData();
+
+        const todayLog = logs.find(l => l.date === todayStr);
+        if (todayLog) todayProtein = todayLog.protein || 0;
       }
 
       document.getElementById('user-weight').value = userWeight;
       updateProteinTarget();
       updateProteinUI();
+      renderWeightChart();
     }
 
-    function loadLocalData() {
-      dbHistory = JSON.parse(localStorage.getItem('gym_history') || '[]');
-      userWeight = parseFloat(localStorage.getItem('gym_weight') || '75');
-      const dailyProteinObj = JSON.parse(localStorage.getItem('gym_protein') || '{}');
-      todayProtein = dailyProteinObj[todayStr] || 0;
+    function renderWeightChart() {
+      const ctx = document.getElementById('weightChart');
+      if (!ctx) return;
+      
+      const dates = weightHistory.map(w => w.date);
+      const weights = weightHistory.map(w => w.weight);
+
+      if (myWeightChart) myWeightChart.destroy();
+      myWeightChart = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: dates.length ? dates : ['Keine Daten'],
+          datasets: [{
+            data: weights.length ? weights : [userWeight],
+            borderColor: '#10B981',
+            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+            fill: true,
+            tension: 0.35,
+            pointBackgroundColor: '#10B981'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#71717A' } },
+            y: { ticks: { color: '#71717A' } }
+          }
+        }
+      });
     }
 
     function renderWeekStrip() {
@@ -283,15 +340,9 @@
       const val = parseFloat(document.getElementById('user-weight').value);
       if (!val) return;
       userWeight = val;
-      localStorage.setItem('gym_weight', val);
-
-      if (isCloudMode) {
-        try {
-          await supabaseClient.from('daily_logs').upsert({ date: todayStr, weight: userWeight, protein: todayProtein });
-        } catch(e) {}
-      }
-      
+      await supabaseClient.from('daily_logs').upsert({ date: todayStr, weight: userWeight, protein: todayProtein, user_id: currentUser.id });
       updateProteinTarget();
+      await loadAllData();
       alert("Gewicht gesichert!");
     }
 
@@ -305,17 +356,7 @@
       const val = parseInt(document.getElementById('protein-input').value);
       if (!val) return;
       todayProtein += val;
-
-      const dailyProteinObj = JSON.parse(localStorage.getItem('gym_protein') || '{}');
-      dailyProteinObj[todayStr] = todayProtein;
-      localStorage.setItem('gym_protein', JSON.stringify(dailyProteinObj));
-
-      if (isCloudMode) {
-        try {
-          await supabaseClient.from('daily_logs').upsert({ date: todayStr, weight: userWeight, protein: todayProtein });
-        } catch(e) {}
-      }
-
+      await supabaseClient.from('daily_logs').upsert({ date: todayStr, weight: userWeight, protein: todayProtein, user_id: currentUser.id });
       document.getElementById('protein-input').value = '';
       updateProteinUI();
     }
@@ -426,7 +467,6 @@
 
     async function saveData() {
       const selectedDate = document.getElementById('workout-date').value || todayStr;
-
       let newEntries = [];
 
       exercisesConfig[currentDay].forEach((ex, exIdx) => {
@@ -441,35 +481,19 @@
               exercise_name: ex.name,
               set_number: s + 1,
               weight: w,
-              reps: r
+              reps: r,
+              user_id: currentUser.id
             });
           }
         }
       });
 
-      if (newEntries.length === 0) return alert("Bitte trage mindestens ein Gewicht oder Wiederholungen ein!");
+      if (newEntries.length === 0) return alert("Bitte mindestens ein Feld ausfüllen!");
 
-      // Immer Lokal als Backup sichern
-      newEntries.forEach(entry => {
-        dbHistory = dbHistory.filter(h => !(h.date === entry.date && h.day_type === entry.day_type && h.exercise_name === entry.exercise_name && h.set_number === entry.set_number));
-        dbHistory.push(entry);
-      });
-      localStorage.setItem('gym_history', JSON.stringify(dbHistory));
-
-      // Falls Cloud aktiv ist, dort hinsenden
-      if (isCloudMode) {
-        try {
-          await supabaseClient.from('workouts').delete().eq('date', selectedDate).eq('day_type', currentDay);
-          await supabaseClient.from('workouts').insert(newEntries);
-          alert("Training erfolgreich in der Cloud gespeichert!");
-        } catch (err) {
-          alert("Lokal gespeichert (Cloud Fehler)!");
-        }
-      } else {
-        alert("Training lokal auf dem Gerät gespeichert!");
-      }
-
-      renderChart();
+      await supabaseClient.from('workouts').delete().eq('date', selectedDate).eq('day_type', currentDay).eq('user_id', currentUser.id);
+      await supabaseClient.from('workouts').insert(newEntries);
+      alert("Training für deinen Account gespeichert!");
+      await loadAllData();
       renderWorkout();
     }
 
