@@ -104,7 +104,6 @@
 
     .exercise-card { background: var(--card); border-radius: 14px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); width: 100%; position: relative; }
     
-    /* RECHTS NEBENEINANDER FORMATIERUNG */
     .exercise-title { 
       font-size: 0.9rem; 
       font-weight: 700; 
@@ -134,7 +133,7 @@
     .last-val-hint { font-size: 0.7rem; color: var(--sub); margin-top: 2px; text-align: right; grid-column: 2 / 4; }
 
     .btn-small { padding: 10px 14px; background: var(--accent); color: #FFF; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.85rem; white-space: nowrap; margin-bottom: 8px; -webkit-user-select: none; }
-    .btn-outline { padding: 8px 12px; background: transparent; color: var(--sub); border: 1px solid var(--border); border-radius: 8px; font-size: 0.75rem; cursor: pointer; -webkit-user-select: none; }
+    .btn-outline { padding: 8px 12px; background: transparent; color: var(--sub); border: 1px solid var(--border); border-radius: 6px; font-size: 0.75rem; cursor: pointer; -webkit-user-select: none; }
     .save-btn { width: 100%; padding: 16px; background: var(--accent); color: #FFF; border: none; border-radius: 14px; font-size: 0.95rem; font-weight: 800; cursor: pointer; margin-top: 8px; box-shadow: 0 4px 20px var(--accent-glow); -webkit-user-select: none; }
     .chart-container { height: 140px; width: 100%; margin-top: 6px; }
 
@@ -621,7 +620,7 @@
           <div class="action-btn-group">
             <button class="ex-action-btn remove-set" onclick="removeSingleSet(${exIdx})" title="1 Satz entfernen">➖</button>
             <button class="ex-action-btn add-set" onclick="addSingleSet(${exIdx})" title="1 Satz hinzufügen">➕</button>
-            <button class="ex-action-btn" onclick="editExercise(${exIdx})" title="Übung bearbeiten">✏️</button>
+            <button class="ex-action-btn" onclick="editExercise(${exIdx})" title="Übung umbenennen">✏️</button>
             <button class="ex-action-btn delete" onclick="removeExercise(${exIdx})" title="Übung löschen">✕</button>
           </div>
           <div class="exercise-title">
@@ -720,29 +719,40 @@
       renderWorkout();
     }
 
+    // NUREN NAMEN / UNTERTITEL BEARBEITEN UND HISTORIE IN SUPABASE MIGRATEN
     async function editExercise(exIdx) {
       const ex = userPlans[currentDay].exercises[exIdx];
       if (!ex) return;
 
+      const oldName = ex.name;
+
       const newName = prompt("Neuer Name der Übung:", ex.name);
-      if (newName === null) return;
+      if (newName === null) return; // Abgebrochen
 
       const newSub = prompt("Neuer Fokus / Untertitel (optional):", ex.subtitle || "");
       if (newSub === null) return;
 
-      const newSetsStr = prompt("Anzahl der Sätze (1-10):", ex.sets);
-      if (newSetsStr === null) return;
+      const trimmedName = newName.trim() || oldName;
 
-      const newSets = parseInt(newSetsStr) || ex.sets;
+      // 1. Wenn der Name geändert wurde, historische Daten in Supabase aktualisieren
+      if (trimmedName !== oldName) {
+        await supabaseClient
+          .from('workouts')
+          .update({ exercise_name: trimmedName })
+          .eq('user_id', currentUser.id)
+          .eq('exercise_name', oldName);
+          
+        ex.name = trimmedName;
+      }
 
-      ex.name = newName.trim() || ex.name;
+      // 2. Untertitel aktualisieren
       if (newSub.trim()) {
         ex.subtitle = newSub.trim();
       } else {
         delete ex.subtitle;
       }
-      ex.sets = Math.max(1, Math.min(10, newSets));
 
+      // 3. Plan in Cloud speichern
       await supabaseClient.from('user_plans').upsert({
         user_id: currentUser.id,
         day_key: currentDay,
@@ -750,9 +760,8 @@
         exercises: userPlans[currentDay].exercises
       }, { onConflict: 'user_id,day_key' });
 
-      renderWorkout();
-      populateExercisePicker();
-      renderChart();
+      // Daten neu laden, damit die Zuordnung der Historie aktualisiert wird
+      await loadAllData();
     }
 
     async function removeExercise(exIdx) {
