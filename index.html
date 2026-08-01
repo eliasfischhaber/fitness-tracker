@@ -25,6 +25,8 @@
       --green: #10B981;
       --orange: #F59E0B;
       --red: #EF4444;
+      --blue: #3B82F6;
+      --purple: #8B5CF6;
       --text: #F4F4F5;
       --sub: #71717A;
       --border: rgba(255, 255, 255, 0.08);
@@ -100,7 +102,6 @@
 
     .progress-bar-bg { width: 100%; height: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); margin: 6px 0 4px 0; }
     .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); width: 0%; border-radius: 99px; transition: width 0.4s ease; }
-    .progress-bar-fill-kcal { height: 100%; background: linear-gradient(90deg, var(--accent), var(--orange)); width: 0%; border-radius: 99px; transition: width 0.4s ease; }
 
     .exercise-card { background: var(--card); border-radius: 14px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); width: 100%; position: relative; }
     
@@ -147,11 +148,14 @@
 
     .item-fav-btn { background: none; border: none; font-size: 1.1rem; padding: 4px 8px; cursor: pointer; }
 
-    .remaining-hint { font-size: 0.72rem; color: var(--sub); margin-bottom: 12px; font-weight: 600; text-align: right; }
+    .remaining-hint { font-size: 0.72rem; color: var(--sub); margin-bottom: 8px; font-weight: 600; text-align: right; }
 
     .user-badge { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: rgba(99, 102, 241, 0.15); padding: 4px 8px; border-radius: 6px; }
     .input-group { display: flex; flex-direction: column; gap: 2px; width: 100%; }
     .input-label { font-size: 0.75rem; color: var(--sub); font-weight: 600; margin-bottom: 2px; }
+
+    .nutri-card-item { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px dashed var(--border); }
+    .nutri-card-item:last-child { border-bottom: none; margin-bottom: 0; }
 
     /* VOLLBILD SCANNER OVERLAY */
     #scanner-overlay { 
@@ -321,36 +325,29 @@
         </div>
       </div>
 
-      <!-- PROTEIN & KCAL FORMS INKL. RESTANZEIGE -->
+      <!-- NÄHRWERT-TRACKING HOCH-FLEXIBEL -->
       <div class="card">
         <div class="card-title">
-          <span>Protein Intake (Heute)</span>
-          <span id="protein-count-text" style="color: var(--accent); font-weight:800;">0 / 0 g</span>
+          <span>Nährwert-Tracking</span>
         </div>
-        <div class="progress-bar-bg">
-          <div class="progress-bar-fill" id="protein-progress"></div>
-        </div>
-        <div class="remaining-hint" id="protein-remaining-text">Noch -- g fehlen</div>
-        <div style="display: flex; gap: 6px; margin-bottom: 16px;">
-          <input type="number" inputmode="numeric" id="protein-input" placeholder="Gramm (z.B. 40)">
-          <button class="btn-small" onclick="addProtein()">+ Hinzufügen</button>
+        
+        <!-- DROPDOWN WELCHE DATEN GETRACKT WERDEN SOLLEN -->
+        <div class="input-group" style="margin-bottom: 14px;">
+          <span class="input-label">Sichtbare Nährwerte wählen</span>
+          <select id="nutrition-mode-select" onchange="changeNutritionMode()" style="margin-bottom: 0;">
+            <option value="PROTEIN_KCAL">Protein & Kalorien (Default)</option>
+            <option value="ALL">Alle Nährwerte (Makros, Zucker, Fett etc.)</option>
+            <option value="PROTEIN">Nur Protein</option>
+            <option value="KCAL">Nur Kalorien</option>
+            <option value="CARBS">Nur Kohlenhydrate & Zucker</option>
+            <option value="FAT">Nur Fett & Gesättigte Fettsäuren</option>
+          </select>
         </div>
 
-        <div class="card-title">
-          <span>Kalorien Intake (Heute)</span>
-          <span id="kcal-count-text" style="color: var(--orange); font-weight:800;">0 / 0 kcal</span>
-        </div>
-        <div class="progress-bar-bg">
-          <div class="progress-bar-fill-kcal" id="kcal-progress"></div>
-        </div>
-        <div class="remaining-hint" id="kcal-remaining-text">Noch -- kcal fehlen</div>
-        <div style="display: flex; gap: 6px;">
-          <input type="number" inputmode="numeric" id="kcal-input" placeholder="Kcal (z.B. 650)">
-          <button class="btn-small" style="background: var(--orange);" onclick="addKcal()">+ Hinzufügen</button>
-        </div>
+        <div id="dynamic-nutrition-container"></div>
 
         <!-- SCANNER BUTTON -->
-        <div style="margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px;">
+        <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 8px;">
           <button class="btn-small" style="width: 100%; background: linear-gradient(135deg, var(--accent), #4F46E5); padding: 12px; margin-bottom: 10px;" onclick="startBarcodeScanner()">📷 Barcode / QR-Code scannen</button>
         </div>
 
@@ -431,6 +428,17 @@
       }
     };
 
+    const NUTRITION_FIELDS = {
+      protein: { label: "Protein", unit: "g", color: "var(--accent)", fill: "linear-gradient(90deg, var(--accent), var(--green))" },
+      kcal: { label: "Kalorien", unit: "kcal", color: "var(--orange)", fill: "linear-gradient(90deg, var(--accent), var(--orange))" },
+      fat: { label: "Fett", unit: "g", color: "var(--red)", fill: "linear-gradient(90deg, var(--accent), var(--red))" },
+      satFat: { label: "Gesättigte Fettsäuren", unit: "g", color: "#F43F5E", fill: "linear-gradient(90deg, var(--accent), #F43F5E)" },
+      carbs: { label: "Kohlenhydrate", unit: "g", color: "var(--blue)", fill: "linear-gradient(90deg, var(--accent), var(--blue))" },
+      sugar: { label: "Zucker", unit: "g", color: "var(--purple)", fill: "linear-gradient(90deg, var(--accent), var(--purple))" },
+      fiber: { label: "Ballaststoffe", unit: "g", color: "#84CC16", fill: "linear-gradient(90deg, var(--accent), #84CC16)" },
+      salt: { label: "Salz", unit: "g", color: "#06B6D4", fill: "linear-gradient(90deg, var(--accent), #06B6D4)" }
+    };
+
     let userPlans = {};
     let currentDay = 'A';
     let dbHistory = [];
@@ -438,8 +446,18 @@
     let userWeight = 75;
     let targetWeight = 75;
     let targetKcal = 2500;
-    let todayProtein = 0;
-    let todayKcal = 0;
+
+    let todayNutri = {
+      protein: 0,
+      kcal: 0,
+      fat: 0,
+      satFat: 0,
+      carbs: 0,
+      sugar: 0,
+      fiber: 0,
+      salt: 0
+    };
+
     let currentUser = null;
     let myChart = null;
     let myWeightChart = null;
@@ -470,12 +488,129 @@
         document.getElementById('workout-date').value = todayStr;
         
         loadLocalFoodLists();
+        loadNutritionMode();
         await loadAllData();
         renderWeekStrip();
       } else {
         document.getElementById('auth-screen').style.display = 'flex';
         document.getElementById('app-screen').style.display = 'none';
       }
+    }
+
+    function loadNutritionMode() {
+      if (!currentUser) return;
+      const savedMode = localStorage.getItem(`nutri_mode_${currentUser.id}`) || 'PROTEIN_KCAL';
+      document.getElementById('nutrition-mode-select').value = savedMode;
+      renderNutritionUI();
+    }
+
+    function changeNutritionMode() {
+      const mode = document.getElementById('nutrition-mode-select').value;
+      if (currentUser) {
+        localStorage.setItem(`nutri_mode_${currentUser.id}`, mode);
+      }
+      renderNutritionUI();
+    }
+
+    function getActiveNutriKeys() {
+      const mode = document.getElementById('nutrition-mode-select').value;
+      if (mode === 'ALL') return ['protein', 'kcal', 'carbs', 'sugar', 'fat', 'satFat', 'fiber', 'salt'];
+      if (mode === 'PROTEIN') return ['protein'];
+      if (mode === 'KCAL') return ['kcal'];
+      if (mode === 'CARBS') return ['carbs', 'sugar'];
+      if (mode === 'FAT') return ['fat', 'satFat'];
+      return ['protein', 'kcal']; // DEFAULT
+    }
+
+    function renderNutritionUI() {
+      const container = document.getElementById('dynamic-nutrition-container');
+      container.innerHTML = '';
+      const activeKeys = getActiveNutriKeys();
+
+      const proteinTarget = Math.round(targetWeight * 2.0);
+      document.getElementById('protein-target-text').innerText = `Proteinziel: ${proteinTarget} g (basiert auf ${targetWeight} kg Zielgewicht)`;
+
+      activeKeys.forEach(key => {
+        const info = NUTRITION_FIELDS[key];
+        const currentVal = todayNutri[key] || 0;
+        let targetVal = 0;
+        if (key === 'protein') targetVal = proteinTarget;
+        if (key === 'kcal') targetVal = targetKcal;
+
+        const div = document.createElement('div');
+        div.className = 'nutri-card-item';
+
+        let targetDisplay = targetVal > 0 ? ` / ${targetVal} ${info.unit}` : ` ${info.unit}`;
+        let progressPct = targetVal > 0 ? Math.min(100, Math.round((currentVal / targetVal) * 100)) : 100;
+
+        let remText = '';
+        if (targetVal > 0) {
+          const diff = targetVal - currentVal;
+          if (diff > 0) {
+            remText = `<div class="remaining-hint">Noch ${diff} ${info.unit} fehlen</div>`;
+          } else {
+            remText = `<div class="remaining-hint" style="color:var(--green)">Ziel erreicht! 🎉 ${Math.abs(diff)} ${info.unit} drüber</div>`;
+          }
+        }
+
+        div.innerHTML = `
+          <div class="card-title" style="font-size: 0.85rem; margin-bottom: 4px;">
+            <span>${info.label} Intake (Heute)</span>
+            <span style="color: ${info.color}; font-weight:800;">${currentVal}${targetDisplay}</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="width: ${progressPct}%; background: ${info.fill};"></div>
+          </div>
+          ${remText}
+          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+            <input type="number" inputmode="numeric" id="input_nutri_${key}" placeholder="${info.unit} (z.B. 20)">
+            <button class="btn-small" style="background:${info.color};" onclick="addSingleNutrition('${key}')">+ Hinzufügen</button>
+          </div>
+          <div style="display: flex; justify-content: flex-end;">
+            <button class="btn-outline" style="color: var(--red); border-color: rgba(239, 68, 68, 0.3); font-size: 0.7rem; padding: 4px 8px;" onclick="resetSingleNutrition('${key}')">🔄 ${info.label} zurücksetzen</button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    async function addSingleNutrition(key) {
+      const input = document.getElementById(`input_nutri_${key}`);
+      const val = parseFloat(input.value);
+      if (!val || isNaN(val)) return;
+
+      todayNutri[key] = Math.round(((todayNutri[key] || 0) + val) * 10) / 10;
+      await saveTodayNutriToCloud();
+      input.value = '';
+      renderNutritionUI();
+    }
+
+    async function resetSingleNutrition(key) {
+      const info = NUTRITION_FIELDS[key];
+      if (!confirm(`Möchtest du wirklich ${info.label} für HEUTE auf 0 zurücksetzen?`)) return;
+
+      todayNutri[key] = 0;
+      await saveTodayNutriToCloud();
+      renderNutritionUI();
+    }
+
+    async function saveTodayNutriToCloud() {
+      await supabaseClient.from('daily_logs').upsert(
+        { 
+          date: todayStr, 
+          weight: userWeight, 
+          protein: todayNutri.protein, 
+          kcal: todayNutri.kcal, 
+          fat: todayNutri.fat,
+          sat_fat: todayNutri.satFat,
+          carbs: todayNutri.carbs,
+          sugar: todayNutri.sugar,
+          fiber: todayNutri.fiber,
+          salt: todayNutri.salt,
+          user_id: currentUser.id 
+        },
+        { onConflict: 'date,user_id' }
+      );
     }
 
     function loadLocalFoodLists() {
@@ -584,18 +719,21 @@
 
         const todayLog = logs.find(l => l.date === todayStr);
         if (todayLog) {
-          todayProtein = todayLog.protein || 0;
-          todayKcal = todayLog.kcal || 0;
-        } else {
-          todayProtein = 0;
-          todayKcal = 0;
+          todayNutri.protein = todayLog.protein || 0;
+          todayNutri.kcal = todayLog.kcal || 0;
+          todayNutri.fat = todayLog.fat || 0;
+          todayNutri.satFat = todayLog.sat_fat || 0;
+          todayNutri.carbs = todayLog.carbs || 0;
+          todayNutri.sugar = todayLog.sugar || 0;
+          todayNutri.fiber = todayLog.fiber || 0;
+          todayNutri.salt = todayLog.salt || 0;
         }
       }
 
       document.getElementById('user-weight').value = userWeight;
       renderDaySelector();
       switchDay(currentDay);
-      updateNutritionUI();
+      renderNutritionUI();
       renderWeightChart();
     }
 
@@ -1004,7 +1142,7 @@
         { onConflict: 'user_id' }
       );
 
-      updateNutritionUI();
+      renderNutritionUI();
       alert("Ziele erfolgreich gespeichert!");
     }
 
@@ -1069,73 +1207,9 @@
       if (!val) return;
       userWeight = val;
 
-      await supabaseClient.from('daily_logs').upsert(
-        { date: todayStr, weight: userWeight, protein: todayProtein, kcal: todayKcal, user_id: currentUser.id },
-        { onConflict: 'date,user_id' }
-      );
-
+      await saveTodayNutriToCloud();
       await loadAllData();
       alert("Aktuelles Gewicht gesichert!");
-    }
-
-    async function addProtein() {
-      const val = parseInt(document.getElementById('protein-input').value);
-      if (!val) return;
-      todayProtein += val;
-
-      await supabaseClient.from('daily_logs').upsert(
-        { date: todayStr, weight: userWeight, protein: todayProtein, kcal: todayKcal, user_id: currentUser.id },
-        { onConflict: 'date,user_id' }
-      );
-
-      document.getElementById('protein-input').value = '';
-      updateNutritionUI();
-    }
-
-    async function addKcal() {
-      const val = parseInt(document.getElementById('kcal-input').value);
-      if (!val) return;
-      todayKcal += val;
-
-      await supabaseClient.from('daily_logs').upsert(
-        { date: todayStr, weight: userWeight, protein: todayProtein, kcal: todayKcal, user_id: currentUser.id },
-        { onConflict: 'date,user_id' }
-      );
-
-      document.getElementById('kcal-input').value = '';
-      updateNutritionUI();
-    }
-
-    // UPDATE NUTRITION UI INKLUSIVE ANZEIGE FEHLENDER AMOUNT
-    function updateNutritionUI() {
-      const proteinTarget = Math.round(targetWeight * 2.0);
-      document.getElementById('protein-target-text').innerText = `Proteinziel: ${proteinTarget} g (basiert auf ${targetWeight} kg Zielgewicht)`;
-      
-      document.getElementById('protein-count-text').innerText = `${todayProtein} / ${proteinTarget} g`;
-      const pPct = Math.min(100, Math.round((todayProtein / proteinTarget) * 100));
-      document.getElementById('protein-progress').style.width = pPct + '%';
-
-      const pDiff = proteinTarget - todayProtein;
-      if (pDiff > 0) {
-        document.getElementById('protein-remaining-text').innerText = `Noch ${pDiff} g fehlen`;
-        document.getElementById('protein-remaining-text').style.color = "var(--sub)";
-      } else {
-        document.getElementById('protein-remaining-text').innerText = `Ziel erreicht! 🎉 ${Math.abs(pDiff)} g drüber`;
-        document.getElementById('protein-remaining-text').style.color = "var(--green)";
-      }
-
-      document.getElementById('kcal-count-text').innerText = `${todayKcal} / ${targetKcal} kcal`;
-      const kPct = Math.min(100, Math.round((todayKcal / targetKcal) * 100));
-      document.getElementById('kcal-progress').style.width = kPct + '%';
-
-      const kDiff = targetKcal - todayKcal;
-      if (kDiff > 0) {
-        document.getElementById('kcal-remaining-text').innerText = `Noch ${kDiff} kcal fehlen`;
-        document.getElementById('kcal-remaining-text').style.color = "var(--sub)";
-      } else {
-        document.getElementById('kcal-remaining-text').innerText = `Ziel erreicht! 🎉 +${Math.abs(kDiff)} kcal drüber`;
-        document.getElementById('kcal-remaining-text').style.color = "var(--orange)";
-      }
     }
 
     // SCANNER LOGIK
@@ -1198,7 +1272,7 @@
 
         if (data.products && data.products.length > 0) {
           data.products.forEach(p => {
-            const card = createFoodResultCard(p, false);
+            const card = createFoodResultCard(p);
             resultsContainer.appendChild(card);
           });
         } else {
@@ -1209,42 +1283,53 @@
       }
     }
 
-    function createFoodResultCard(p, isFavList = false) {
+    function extractProductNutris(p) {
+      const n = p.nutriments || {};
+      return {
+        protein: n['proteins_100g'] || 0,
+        kcal: n['energy-kcal_100g'] || n['energy-kcal'] || 0,
+        fat: n['fat_100g'] || 0,
+        satFat: n['saturated-fat_100g'] || 0,
+        carbs: n['carbohydrates_100g'] || 0,
+        sugar: n['sugars_100g'] || 0,
+        fiber: n['fiber_100g'] || 0,
+        salt: n['salt_100g'] || 0
+      };
+    }
+
+    function createFoodResultCard(p) {
       const name = (p.brands ? p.brands + " - " : "") + (p.product_name || "Unbekanntes Produkt");
-      const pPer100 = p.nutriments ? (p.nutriments['proteins_100g'] || 0) : 0;
-      const kPer100 = p.nutriments ? (p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'] || 0) : 0;
+      const nutris = extractProductNutris(p);
 
       const isFav = favoriteFoods.some(f => f.code === p.code || f.name === name);
 
       const item = document.createElement('div');
       item.className = 'search-result-item';
+
+      const nutrisJson = JSON.stringify(nutris).replace(/'/g, "&apos;");
+
       item.innerHTML = `
-        <div style="flex:1; margin-right: 8px;" onclick="processAndAddProductDirect('${name}', ${pPer100}, ${kPer100}, '${p.categories_tags ? p.categories_tags.join(' ') : ''}', '${p.quantity || ''}', '${p.code || ''}')">
+        <div style="flex:1; margin-right: 8px;" onclick='processAndAddProductDirect("${name}", ${nutrisJson}, "${p.categories_tags ? p.categories_tags.join(' ') : ''}", "${p.quantity || ''}", "${p.code || ''}")'>
           <div style="font-size:0.8rem; font-weight:700; color:var(--text);">${name}</div>
-          <div style="font-size:0.7rem; color:var(--sub);">Pro 100g/ml: ${pPer100}g P | ${kPer100} kcal</div>
+          <div style="font-size:0.7rem; color:var(--sub);">Pro 100g/ml: ${nutris.protein}g P | ${nutris.kcal} kcal | ${nutris.carbs}g KH | ${nutris.fat}g Fett</div>
         </div>
-        <button class="item-fav-btn" onclick="toggleFavorite(event, '${name}', ${pPer100}, ${kPer100}, '${p.categories_tags ? p.categories_tags.join(' ') : ''}', '${p.quantity || ''}', '${p.code || ''}')">${isFav ? '⭐️' : '☆'}</button>
+        <button class="item-fav-btn" onclick='toggleFavorite(event, "${name}", ${nutrisJson}, "${p.categories_tags ? p.categories_tags.join(' ') : ''}", "${p.quantity || ''}", "${p.code || ''}")'>${isFav ? '⭐️' : '☆'}</button>
       `;
       return item;
     }
 
-    function toggleFavorite(event, name, pPer100, kPer100, categories, quantity, code) {
+    function toggleFavorite(event, name, nutris, categories, quantity, code) {
       event.stopPropagation();
       const existingIdx = favoriteFoods.findIndex(f => (code && f.code === code) || f.name === name);
 
       if (existingIdx >= 0) {
         favoriteFoods.splice(existingIdx, 1);
       } else {
-        favoriteFoods.push({ name, pPer100, kPer100, categories, quantity, code });
+        favoriteFoods.push({ name, nutris, categories, quantity, code });
       }
 
       saveLocalFoodLists();
       renderFavoritesUI();
-      
-      const searchContainer = document.getElementById('food-search-results');
-      if (searchContainer.children.length > 0) {
-        searchFoodByName();
-      }
     }
 
     function renderFavoritesUI() {
@@ -1259,7 +1344,7 @@
 
       section.style.display = 'block';
       favoriteFoods.forEach(p => {
-        const card = createFoodResultCard(p, true);
+        const card = createFoodResultCard(p);
         list.appendChild(card);
       });
     }
@@ -1285,23 +1370,22 @@
 
       section.style.display = 'block';
       recentFoods.forEach(p => {
-        const card = createFoodResultCard(p, false);
+        const card = createFoodResultCard(p);
         list.appendChild(card);
       });
     }
 
     function processAndAddProduct(p) {
       const name = (p.brands ? p.brands + " - " : "") + (p.product_name || "Unbekanntes Produkt");
-      const pPer100 = p.nutriments ? (p.nutriments['proteins_100g'] || 0) : 0;
-      const kPer100 = p.nutriments ? (p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'] || 0) : 0;
+      const nutris = extractProductNutris(p);
       const categories = (p.categories_tags || []).join(' ');
       const quantity = p.quantity || "";
       const code = p.code || "";
 
-      processAndAddProductDirect(name, pPer100, kPer100, categories, quantity, code);
+      processAndAddProductDirect(name, nutris, categories, quantity, code);
     }
 
-    async function processAndAddProductDirect(name, pPer100, kPer100, categoriesStr, quantityStr, code) {
+    async function processAndAddProductDirect(name, nutris, categoriesStr, quantityStr, code) {
       const categories = (categoriesStr || "").toLowerCase();
       const quantity = (quantityStr || "").toLowerCase();
       
@@ -1311,28 +1395,24 @@
       const actionText = isDrink ? "getrunken" : "gegessen";
       const unitWord = isDrink ? "Milliliter" : "Gramm";
 
-      const amountStr = prompt(`Produkt: ${name}\n\nNährwerte (pro 100${unit}):\n- Protein: ${pPer100}g\n- Kalorien: ${kPer100} kcal\n\nWie viel ${unitWord} hast du ${actionText}?`, "100");
+      const amountStr = prompt(`Produkt: ${name}\n\nNährwerte (pro 100${unit}):\n- Protein: ${nutris.protein}g\n- Kalorien: ${nutris.kcal} kcal\n- KH: ${nutris.carbs}g | Fett: ${nutris.fat}g\n\nWie viel ${unitWord} hast du ${actionText}?`, "100");
       
       if (amountStr) {
         const amount = parseFloat(amountStr);
         if (!isNaN(amount) && amount > 0) {
-          const addP = Math.round((pPer100 * amount) / 100);
-          const addK = Math.round((kPer100 * amount) / 100);
 
-          todayProtein += addP;
-          todayKcal += addK;
+          Object.keys(NUTRITION_FIELDS).forEach(k => {
+            const addedVal = ((nutris[k] || 0) * amount) / 100;
+            todayNutri[k] = Math.round(((todayNutri[k] || 0) + addedVal) * 10) / 10;
+          });
 
-          await supabaseClient.from('daily_logs').upsert(
-            { date: todayStr, weight: userWeight, protein: todayProtein, kcal: todayKcal, user_id: currentUser.id },
-            { onConflict: 'date,user_id' }
-          );
+          await saveTodayNutriToCloud();
+          addToRecentFoods({ name, nutris, categories: categoriesStr, quantity: quantityStr, code });
 
-          addToRecentFoods({ name, pPer100, kPer100, categories: categoriesStr, quantity: quantityStr, code });
-
-          updateNutritionUI();
+          renderNutritionUI();
           document.getElementById('food-search-results').innerHTML = '';
           document.getElementById('food-search-query').value = '';
-          alert(`Hinzugefügt für ${name} (${amount}${unit}):\n+${addP}g Protein\n+${addK} kcal`);
+          alert(`Hinzugefügt für ${name} (${amount}${unit})!\nDeine Tageswerte wurden aktualisiert.`);
         }
       }
     }
