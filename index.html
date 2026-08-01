@@ -154,7 +154,7 @@
     .history-chip { display: flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); padding: 4px 8px; border-radius: 8px; font-size: 0.75rem; color: var(--sub); font-weight: 600; }
     .history-chip button { background: none; border: none; color: var(--red); cursor: pointer; font-size: 0.8rem; line-height: 1; }
 
-    .search-results-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+    .search-results-list { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
     .search-result-item { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 10px; padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
     .search-result-item:active { background: rgba(99, 102, 241, 0.15); border-color: var(--border-accent); }
 
@@ -166,27 +166,27 @@
     .input-group { display: flex; flex-direction: column; gap: 2px; width: 100%; }
     .input-label { font-size: 0.75rem; color: var(--sub); font-weight: 600; margin-bottom: 2px; }
 
-    .nutri-card-item { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px dashed var(--border); }
+    .nutri-card-item { margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px dashed var(--border); }
     .nutri-card-item:last-child { border-bottom: none; margin-bottom: 0; }
 
     /* AUSKLAPPBARER BEREICH STYLES */
     .toggle-section-btn {
       width: 100%;
-      background: rgba(255, 255, 255, 0.03);
+      background: rgba(255, 255, 255, 0.02);
       border: 1px solid var(--border);
-      color: var(--text);
-      padding: 10px 14px;
-      border-radius: 10px;
-      font-size: 0.8rem;
+      color: var(--sub);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
       font-weight: 700;
       display: flex;
       justify-content: space-between;
       align-items: center;
       cursor: pointer;
       transition: background 0.2s;
-      margin-top: 10px;
+      margin-top: 6px;
     }
-    .toggle-section-btn:active { background: rgba(255, 255, 255, 0.08); }
+    .toggle-section-btn:active { background: rgba(255, 255, 255, 0.06); }
 
     /* VOLLBILD SCANNER OVERLAY */
     #scanner-overlay { 
@@ -361,18 +361,6 @@
 
         <div id="dynamic-nutrition-container" style="border-top: 1px solid var(--border); padding-top: 12px;"></div>
 
-        <!-- AUSKLAPPBARER VERLAUF DER HEUTE GETRACKTEN EINZELEINTRÄGE -->
-        <div id="today-entries-wrapper" style="display: none; border-top: 1px solid var(--border); margin-top: 12px; padding-top: 4px;">
-          <button class="toggle-section-btn" onclick="toggleTodayEntriesVisibility()">
-            <span id="today-entries-toggle-title">📝 Heute getrackte Einträge (0)</span>
-            <span id="today-entries-toggle-icon">▼</span>
-          </button>
-          
-          <div id="today-entries-container" style="display: none; margin-top: 8px;">
-            <div class="search-results-list" id="today-entries-list"></div>
-          </div>
-        </div>
-
         <!-- SCANNER BUTTON -->
         <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px;">
           <button class="btn-small" style="width: 100%; background: linear-gradient(135deg, var(--accent), #4F46E5); padding: 12px; margin-bottom: 10px;" onclick="startBarcodeScanner()">📷 Barcode / QR-Code scannen</button>
@@ -484,7 +472,7 @@
     };
 
     let todayEntries = [];
-    let isTodayEntriesOpen = false; // Status für Ausklapp-Fach
+    let openToggles = {}; // Speichert den Ausklapp-Status pro Nährwert-Key
 
     let currentUser = null;
     let myChart = null;
@@ -636,6 +624,39 @@
           }
         }
 
+        // Filtere Einträge, die diesen Nährwert enthalten
+        const keyEntries = todayEntries.filter(entry => entry.nutris && entry.nutris[key] && entry.nutris[key] > 0);
+        const entryCount = keyEntries.length;
+        const isOpen = !!openToggles[key];
+
+        let subEntriesHTML = '';
+        if (entryCount > 0) {
+          let listItemsHTML = '';
+          keyEntries.forEach(entry => {
+            const val = entry.nutris[key];
+            const realIdx = todayEntries.indexOf(entry);
+            listItemsHTML += `
+              <div class="search-result-item" style="padding: 8px 10px; margin-top: 4px;">
+                <div style="flex:1;">
+                  <div style="font-size:0.78rem; font-weight:700; color:var(--text);">${entry.name}</div>
+                  <div style="font-size:0.68rem; color:var(--accent); font-weight:700;">+${val}${info.unit} ${info.label}</div>
+                </div>
+                <button style="background:none; border:none; color:var(--red); font-size:1rem; cursor:pointer; padding: 2px 6px;" onclick="deleteSpecificNutriEntry(${realIdx})">✕</button>
+              </div>
+            `;
+          });
+
+          subEntriesHTML = `
+            <button class="toggle-section-btn" onclick="toggleNutriSubSection('${key}')">
+              <span>📝 ${info.label} Einträge (${entryCount})</span>
+              <span>${isOpen ? '▲' : '▼'}</span>
+            </button>
+            <div style="display: ${isOpen ? 'block' : 'none'}; margin-top: 4px;">
+              ${listItemsHTML}
+            </div>
+          `;
+        }
+
         div.innerHTML = `
           <div class="card-title" style="font-size: 0.85rem; margin-bottom: 4px;">
             <span>${info.label} Intake (Heute)</span>
@@ -645,74 +666,26 @@
             <div class="progress-bar-fill" style="width: ${progressPct}%; background: ${info.fill};"></div>
           </div>
           ${remText}
-          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+          <div style="display: flex; gap: 6px; margin-bottom: 4px;">
             <input type="number" inputmode="numeric" id="input_nutri_${key}" placeholder="${info.unit} (z.B. 20)">
             <button class="btn-small" style="background:${info.color};" onclick="addSingleNutrition('${key}')">+ Hinzufügen</button>
           </div>
+          ${subEntriesHTML}
         `;
         container.appendChild(div);
       });
-
-      renderTodayEntriesUI();
     }
 
-    function toggleTodayEntriesVisibility() {
-      isTodayEntriesOpen = !isTodayEntriesOpen;
-      renderTodayEntriesUI();
+    function toggleNutriSubSection(key) {
+      openToggles[key] = !openToggles[key];
+      renderNutritionUI();
     }
 
-    function renderTodayEntriesUI() {
-      const wrapper = document.getElementById('today-entries-wrapper');
-      const container = document.getElementById('today-entries-container');
-      const list = document.getElementById('today-entries-list');
-      const titleSpan = document.getElementById('today-entries-toggle-title');
-      const iconSpan = document.getElementById('today-entries-toggle-icon');
-
-      list.innerHTML = '';
-
-      if (!todayEntries || todayEntries.length === 0) {
-        wrapper.style.display = 'none';
-        return;
-      }
-
-      wrapper.style.display = 'block';
-      titleSpan.innerText = `📝 Heute getrackte Einträge (${todayEntries.length})`;
-
-      if (isTodayEntriesOpen) {
-        container.style.display = 'block';
-        iconSpan.innerText = '▲';
-
-        todayEntries.forEach((entry, idx) => {
-          const item = document.createElement('div');
-          item.className = 'search-result-item';
-
-          let nutriSummary = [];
-          Object.keys(NUTRITION_FIELDS).forEach(k => {
-            if (entry.nutris && entry.nutris[k]) {
-              nutriSummary.push(`${entry.nutris[k]}${NUTRITION_FIELDS[k].unit} ${NUTRITION_FIELDS[k].label}`);
-            }
-          });
-
-          item.innerHTML = `
-            <div style="flex:1;">
-              <div style="font-size:0.8rem; font-weight:700; color:var(--text);">${entry.name}</div>
-              <div style="font-size:0.7rem; color:var(--sub);">${nutriSummary.join(' | ')}</div>
-            </div>
-            <button style="background:none; border:none; color:var(--red); font-size:1.1rem; cursor:pointer; padding: 4px 8px;" onclick="deleteTodayEntry(${idx})">✕</button>
-          `;
-          list.appendChild(item);
-        });
-      } else {
-        container.style.display = 'none';
-        iconSpan.innerText = '▼';
-      }
-    }
-
-    async function deleteTodayEntry(idx) {
-      const entryToDelete = todayEntries[idx];
+    async function deleteSpecificNutriEntry(realIdx) {
+      const entryToDelete = todayEntries[realIdx];
       if (!entryToDelete) return;
 
-      if (!confirm(`Möchtest du den Eintrag "${entryToDelete.name}" für heute wirklich löschen?`)) return;
+      if (!confirm(`Möchtest du "${entryToDelete.name}" wirklich aus deinem Tagesverlauf löschen?`)) return;
 
       Object.keys(NUTRITION_FIELDS).forEach(k => {
         if (entryToDelete.nutris && entryToDelete.nutris[k]) {
@@ -720,7 +693,7 @@
         }
       });
 
-      todayEntries.splice(idx, 1);
+      todayEntries.splice(realIdx, 1);
       saveLocalTodayEntries();
       await saveTodayNutriToCloud();
       renderNutritionUI();
@@ -1462,14 +1435,14 @@
     function extractProductNutris(p) {
       const n = p.nutriments || {};
       return {
-        protein: n['proteins_100g'] || 0,
-        kcal: n['energy-kcal_100g'] || n['energy-kcal'] || 0,
-        fat: n['fat_100g'] || 0,
-        satFat: n['saturated-fat_100g'] || 0,
-        carbs: n['carbohydrates_100g'] || 0,
-        sugar: n['sugars_100g'] || 0,
-        fiber: n['fiber_100g'] || 0,
-        salt: n['salt_100g'] || 0
+        protein: Math.round((n['proteins_100g'] || 0) * 10) / 10,
+        kcal: Math.round(n['energy-kcal_100g'] || n['energy-kcal'] || 0),
+        fat: Math.round((n['fat_100g'] || 0) * 10) / 10,
+        satFat: Math.round((n['saturated-fat_100g'] || 0) * 10) / 10,
+        carbs: Math.round((n['carbohydrates_100g'] || 0) * 10) / 10,
+        sugar: Math.round((n['sugars_100g'] || 0) * 10) / 10,
+        fiber: Math.round((n['fiber_100g'] || 0) * 10) / 10,
+        salt: Math.round((n['salt_100g'] || 0) * 10) / 10
       };
     }
 
@@ -1494,19 +1467,25 @@
       const item = document.createElement('div');
       item.className = 'search-result-item';
 
-      item.innerHTML = `
-        <div style="flex:1; margin-right: 8px;">
-          <div style="font-size:0.8rem; font-weight:700; color:var(--text);">${name}</div>
-          <div style="font-size:0.7rem; color:var(--sub);">Pro 100g/ml: ${nutris.protein}g P | ${nutris.kcal} kcal | ${nutris.carbs}g KH | ${nutris.fat}g Fett</div>
-        </div>
-        <button class="item-fav-btn">${isFav ? '⭐️' : '☆'}</button>
+      const infoDiv = document.createElement('div');
+      infoDiv.style.flex = '1';
+      infoDiv.style.marginRight = '8px';
+      infoDiv.innerHTML = `
+        <div style="font-size:0.8rem; font-weight:700; color:var(--text);">${name}</div>
+        <div style="font-size:0.7rem; color:var(--sub);">Pro 100g/ml: ${nutris.protein}g P | ${nutris.kcal} kcal | ${nutris.carbs}g KH | ${nutris.fat}g Fett</div>
       `;
+      infoDiv.onclick = () => processAndAddProductDirect(foodObj);
 
-      item.querySelector('div').onclick = () => processAndAddProductDirect(foodObj);
-      item.querySelector('.item-fav-btn').onclick = (e) => {
+      const favBtn = document.createElement('button');
+      favBtn.className = 'item-fav-btn';
+      favBtn.innerText = isFav ? '⭐️' : '☆';
+      favBtn.onclick = (e) => {
         e.stopPropagation();
         toggleFavorite(foodObj);
       };
+
+      item.appendChild(infoDiv);
+      item.appendChild(favBtn);
 
       return item;
     }
@@ -1587,7 +1566,7 @@
     }
 
     async function processAndAddProductDirect(foodObj) {
-      const name = foodObj.name;
+      const name = foodObj.name || "Unbekanntes Produkt";
       const nutris = foodObj.nutris || {};
       const categories = (foodObj.categories || "").toLowerCase();
       const quantity = (foodObj.quantity || "").toLowerCase();
