@@ -66,7 +66,6 @@
         document.getElementById('current-user-tag').innerText = username;
         document.getElementById('workout-date').value = todayStr;
         
-        loadSelectedNutriKeys();
         await loadAllData();
       } else {
         document.getElementById('auth-screen').style.display = 'flex';
@@ -117,16 +116,8 @@
       location.reload();
     }
 
-    function loadSelectedNutriKeys() {
-      if (!currentUser) return;
-      const saved = localStorage.getItem(`selected_nutris_${currentUser.id}`);
-      if (saved) { try { selectedNutriKeys = JSON.parse(saved); } catch(e) {} }
-      renderCheckboxGrid();
-    }
-
     function saveSelectedNutriKeys() {
-      if (!currentUser) return;
-      localStorage.setItem(`selected_nutris_${currentUser.id}`, JSON.stringify(selectedNutriKeys));
+      saveCloudFoodLists();
     }
 
     function renderCheckboxGrid() {
@@ -270,9 +261,7 @@
         fat: todayNutri.fat, sat_fat: todayNutri.satFat, carbs: todayNutri.carbs, sugar: todayNutri.sugar, 
         fiber: todayNutri.fiber, salt: todayNutri.salt, today_entries: todayEntries, user_id: currentUser.id 
       };
-      console.log("DEBUG speichere daily_logs Payload:", payload);
-      const { data, error } = await supabaseClient.from('daily_logs').upsert(payload, { onConflict: 'date,user_id' }).select();
-      console.log("DEBUG daily_logs upsert Antwort:", data, error);
+      const { error } = await supabaseClient.from('daily_logs').upsert(payload, { onConflict: 'date,user_id' });
       if (error) {
         console.error("Fehler beim Speichern des Tages-Trackings:", error.message, error);
         alert("Eintrag konnte nicht gespeichert werden: " + error.message);
@@ -283,7 +272,8 @@
       if (!currentUser) return;
       const { error } = await supabaseClient.from('user_goals').upsert({
         user_id: currentUser.id, target_weight: targetWeight, target_kcal: nutriTargets.kcal || 2800,
-        nutri_targets: nutriTargets, favorite_foods: favoriteFoods, recent_foods: recentFoods, manual_foods: manualFoods
+        nutri_targets: nutriTargets, favorite_foods: favoriteFoods, recent_foods: recentFoods, manual_foods: manualFoods,
+        selected_nutri_keys: selectedNutriKeys
       }, { onConflict: 'user_id' });
       if (error) {
         console.error("Fehler beim Speichern der Favoriten/Recent-Liste:", error.message, error);
@@ -321,6 +311,7 @@
         if (goals[0].favorite_foods) favoriteFoods = goals[0].favorite_foods;
         if (goals[0].recent_foods) recentFoods = goals[0].recent_foods;
         if (goals[0].manual_foods) manualFoods = goals[0].manual_foods;
+        if (goals[0].selected_nutri_keys && goals[0].selected_nutri_keys.length > 0) selectedNutriKeys = goals[0].selected_nutri_keys;
       } else {
         console.log("Keine Goals in Supabase für diesen User gefunden.");
       }
@@ -329,18 +320,14 @@
       if (logsError) {
         console.error("Fehler beim Laden der Tages-Logs:", logsError.message, logsError);
       }
-      console.log("DEBUG todayStr:", todayStr);
-      console.log("DEBUG alle geladenen daily_logs:", logs);
       if (logs && logs.length > 0) {
         weightHistory = logs.filter(l => l.weight > 0).sort((a, b) => new Date(a.date) - new Date(b.date));
         if (weightHistory.length > 0) { userWeight = weightHistory[weightHistory.length - 1].weight; document.getElementById('latest-weight-display').innerText = `${userWeight} kg`; }
         const todaysLogs = logs.filter(l => l.date === todayStr);
-        console.log("DEBUG todaysLogs (exakter Match auf todayStr):", todaysLogs);
         if (todaysLogs.length > 1) {
           console.warn(`Achtung: ${todaysLogs.length} Zeilen in daily_logs für heute gefunden (sollte nur 1 sein). Vermutlich fehlt der UNIQUE-Constraint auf (date,user_id). Nehme die letzte.`);
         }
         const todayLog = todaysLogs[todaysLogs.length - 1];
-        console.log("DEBUG verwendeter todayLog:", todayLog);
         if (todayLog) {
           todayNutri = { protein: todayLog.protein || 0, kcal: todayLog.kcal || 0, fat: todayLog.fat || 0, satFat: todayLog.sat_fat || 0, carbs: todayLog.carbs || 0, sugar: todayLog.sugar || 0, fiber: todayLog.fiber || 0, salt: todayLog.salt || 0 };
           todayEntries = todayLog.today_entries || [];
