@@ -150,7 +150,10 @@
         <div id="current-user-tag" class="user-badge"></div>
         <button onclick="syncCloudData()" title="Cloud aktualisieren" style="background:none; border:none; cursor:pointer; font-size:1.2rem; margin-left: 4px;">🔄</button>
       </div>
-      <button class="btn-outline" onclick="handleLogout()">Abmelden</button>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <a href="desktop.html?force=desktop" style="font-size:0.65rem; color:var(--sub); text-decoration:none;" title="Zur Desktop-Version wechseln">🖥️</a>
+        <button class="btn-outline" onclick="handleLogout()">Abmelden</button>
+      </div>
     </div>
 
     <div class="nav-tabs">
