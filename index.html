@@ -70,7 +70,6 @@
     .control-panel { background: var(--card); border-radius: 16px; padding: 12px; border: 1px solid var(--border); margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; width: 100%; }
     .panel-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
     
-    /* 16px Font-Size verhindert ungewollten Auto-Zoom auf iPhones */
     input[type="date"], input[type="number"], input[type="text"], input[type="password"], select { 
       background: rgba(255, 255, 255, 0.04); 
       border: 1px solid var(--border); 
@@ -104,11 +103,12 @@
     .progress-bar-fill-kcal { height: 100%; background: linear-gradient(90deg, var(--accent), var(--orange)); width: 0%; border-radius: 99px; transition: width 0.4s ease; }
 
     .exercise-card { background: var(--card); border-radius: 14px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); width: 100%; position: relative; }
-    .exercise-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; padding-right: 60px; }
+    .exercise-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; padding-right: 90px; }
     
-    .action-btn-group { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; }
-    .ex-action-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--sub); font-size: 0.95rem; cursor: pointer; padding: 4px 8px; border-radius: 8px; transition: color 0.2s; -webkit-user-select: none; }
+    .action-btn-group { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; }
+    .ex-action-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--sub); font-size: 0.85rem; cursor: pointer; padding: 4px 7px; border-radius: 8px; transition: color 0.2s; -webkit-user-select: none; }
     .ex-action-btn:active { background: rgba(255,255,255,0.15); }
+    .ex-action-btn.add-set { color: var(--green); border-color: rgba(16, 185, 129, 0.3); }
     .ex-action-btn.delete:active { color: var(--red); }
 
     .set-container { margin-bottom: 8px; width: 100%; }
@@ -125,7 +125,7 @@
     .input-group { display: flex; flex-direction: column; gap: 2px; width: 100%; }
     .input-label { font-size: 0.75rem; color: var(--sub); font-weight: 600; margin-bottom: 2px; }
 
-    /* VOLLBILD SCANNER OVERLAY (iOS Notched Ready) */
+    /* VOLLBILD SCANNER OVERLAY */
     #scanner-overlay { 
       display: none; 
       position: fixed; 
@@ -602,6 +602,7 @@
         
         let html = `
           <div class="action-btn-group">
+            <button class="ex-action-btn add-set" onclick="addSingleSet(${exIdx})" title="1 Satz hinzufügen">➕ Satz</button>
             <button class="ex-action-btn" onclick="editExercise(${exIdx})" title="Übung bearbeiten">✏️</button>
             <button class="ex-action-btn delete" onclick="removeExercise(${exIdx})" title="Übung löschen">✕</button>
           </div>
@@ -656,6 +657,27 @@
       renderWorkout();
       populateExercisePicker();
       renderChart();
+    }
+
+    // DIREKT +1 SATZ HINZUFÜGEN
+    async function addSingleSet(exIdx) {
+      const ex = userPlans[currentDay].exercises[exIdx];
+      if (!ex) return;
+
+      if (ex.sets >= 10) {
+        return alert("Maximal 10 Sätze pro Übung erlaubt.");
+      }
+
+      ex.sets += 1;
+
+      await supabaseClient.from('user_plans').upsert({
+        user_id: currentUser.id,
+        day_key: currentDay,
+        day_label: userPlans[currentDay].label,
+        exercises: userPlans[currentDay].exercises
+      }, { onConflict: 'user_id,day_key' });
+
+      renderWorkout();
     }
 
     // BEARBEITEN VON NAME, FOKUS UND SÄTZEN
