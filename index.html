@@ -70,12 +70,20 @@
     .progress-bar-bg { width: 100%; height: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); margin: 6px 0 4px 0; }
     .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); width: 0%; border-radius: 99px; transition: width 0.4s ease; }
 
+    /* FIX: Kompakteres Layout für Übungskarte & Buttons oben rechts */
     .exercise-card { background: var(--card); border-radius: 14px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); width: 100%; position: relative; }
-    .exercise-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 12px; display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; padding-right: 140px; }
-    .exercise-subtitle { font-size: 0.75rem; color: var(--accent); font-weight: 600; }
+    .exercise-title { 
+      font-size: 0.88rem; font-weight: 700; margin-bottom: 12px; 
+      display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; 
+      padding-right: 125px; /* Genug Platz für die 4 kleinen Action-Buttons */
+    }
+    .exercise-subtitle { font-size: 0.72rem; color: var(--accent); font-weight: 600; }
     
-    .action-btn-group { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; }
-    .ex-action-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--sub); font-size: 0.8rem; cursor: pointer; padding: 4px 6px; border-radius: 8px; }
+    .action-btn-group { position: absolute; top: 10px; right: 10px; display: flex; gap: 3px; }
+    .ex-action-btn { 
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--sub); 
+      font-size: 0.72rem; cursor: pointer; padding: 4px 5px; border-radius: 6px; line-height: 1;
+    }
     .ex-action-btn.add-set { color: var(--green); border-color: rgba(16, 185, 129, 0.3); }
     .ex-action-btn.remove-set { color: var(--orange); border-color: rgba(245, 158, 11, 0.3); }
     .ex-action-btn.delete:active { color: var(--red); }
@@ -352,7 +360,6 @@
       }
     }
 
-    // ROBUSTER LOGIN MIT AUTOMATISCHEM REGISTRIERUNGS-FALLBACK & FEHLERMELDUNG
     async function handleCustomLogin() {
       const usernameInput = document.getElementById('auth-user').value.trim().toLowerCase();
       const passwordInput = document.getElementById('auth-password').value.trim();
@@ -362,14 +369,12 @@
         return alert("Ungültiger Benutzername oder falsches Passwort!");
       }
 
-      // 1. Versuch: Einloggen
       let { data, error } = await supabaseClient.auth.signInWithPassword({
         email: account.email,
         password: account.pass
       });
 
       if (error) {
-        // Wenn Account nicht existiert, direkt erstellen
         let { error: signUpError } = await supabaseClient.auth.signUp({
           email: account.email,
           password: account.pass,
@@ -380,14 +385,13 @@
           return alert("Fehler beim Erstellen des Accounts in Supabase: " + signUpError.message);
         }
 
-        // Direkt nochmal einloggen
         let { error: retryError } = await supabaseClient.auth.signInWithPassword({
           email: account.email,
           password: account.pass
         });
 
         if (retryError) {
-          return alert("Login nach Registrierung fehlgeschlagen: " + retryError.message + "\n\nTipp: Falls Supabase E-Mail-Bestätigung verlangt, deaktiviere diese in deinem Supabase Dashboard unter Authentication -> Providers -> Email.");
+          return alert("Login nach Registrierung fehlgeschlagen: " + retryError.message);
         }
       }
 
