@@ -598,8 +598,8 @@
       switchDay(currentDay);
       renderCheckboxGrid();
       renderNutritionUI();
-      renderFavoritesUI();
-      renderRecentFoodsUI();
+      renderFavoritesUI();   // <-- Direkt nach dem Laden gerendert!
+      renderRecentUI();      // <-- Direkt nach dem Laden gerendert!
       renderWeightChart();
     }
 
@@ -832,22 +832,6 @@
     async function stopBarcodeScanner() { if (html5QrcodeScanner) { try { await html5QrcodeScanner.stop(); } catch(e) {} html5QrcodeScanner = null; } document.getElementById('scanner-overlay').style.display = 'none'; }
     async function onScanSuccess(text) { await stopBarcodeScanner(); const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${text}.json`); const data = await res.json(); if (data.status === 1) processAndAddProduct(data.product); else alert("Produkt nicht gefunden."); }
 
-    async function searchFoodByName() {
-      const q = document.getElementById('food-search-query').value.trim();
-      const container = document.getElementById('food-search-results');
-      if (!q) return;
-      container.innerHTML = `<div style="font-size:0.75rem; color:var(--sub); text-align:center;">Suche...</div>`;
-      const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=5`);
-      const data = await res.json();
-      container.innerHTML = '';
-      (data.products || []).forEach(p => container.appendChild(createFoodCard(p)));
-    }
-
-    function extractNutris(p) {
-      const n = p.nutriments || {};
-      return { protein: Math.round((n.proteins_100g || 0)*10)/10, kcal: Math.round(n['energy-kcal_100g'] || n['energy-kcal'] || 0), fat: Math.round((n.fat_100g || 0)*10)/10, satFat: Math.round((n['saturated-fat_100g'] || 0)*10)/10, carbs: Math.round((n.carbohydrates_100g || 0)*10)/10, sugar: Math.round((n.sugars_100g || 0)*10)/10, fiber: Math.round((n.fiber_100g || 0)*10)/10, salt: Math.round((n.salt_100g || 0)*10)/10 };
-    }
-
     function createFoodCard(foodObj) {
       const name = foodObj.name || "Produkt";
       const nutris = foodObj.nutris || { protein: 0, kcal: 0, carbs: 0, fat: 0 };
@@ -927,6 +911,20 @@
       recentFoods.forEach(f => list.appendChild(createFoodCard(f)));
     }
 
+    function extractNutris(p) {
+      const n = p.nutriments || {};
+      return { 
+        protein: Math.round((n.proteins_100g || 0)*10)/10, 
+        kcal: Math.round(n['energy-kcal_100g'] || n['energy-kcal'] || 0), 
+        fat: Math.round((n.fat_100g || 0)*10)/10, 
+        satFat: Math.round((n['saturated-fat_100g'] || 0)*10)/10, 
+        carbs: Math.round((n.carbohydrates_100g || 0)*10)/10, 
+        sugar: Math.round((n.sugars_100g || 0)*10)/10, 
+        fiber: Math.round((n.fiber_100g || 0)*10)/10, 
+        salt: Math.round((n.salt_100g || 0)*10)/10 
+      };
+    }
+
     function processAndAddProduct(p) {
       processAndAddProductDirect({ 
         name: (p.brands ? p.brands + " - " : "") + (p.product_name || "Produkt"), 
@@ -956,7 +954,6 @@
       alert("Hinzugefügt!");
     }
 
-    // Bei Live-Suche OpenFoodFacts API Cards rendern
     async function searchFoodByName() {
       const q = document.getElementById('food-search-query').value.trim();
       const container = document.getElementById('food-search-results');
