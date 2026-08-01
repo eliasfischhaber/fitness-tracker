@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Gym & Nutrition Pro</title>
+  
+  <!-- iOS PWA Optimierungen -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GymTracker">
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Barcode Scanner Bibliothek -->
@@ -25,9 +31,29 @@
       --border-accent: rgba(99, 102, 241, 0.3);
     }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
-    html, body { width: 100%; max-width: 100%; overflow-x: hidden !important; background-color: var(--bg); color: var(--text); }
-    body { padding: 12px; padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(90px, env(safe-area-inset-bottom)); }
+    *, *::before, *::after { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif; 
+      -webkit-tap-highlight-color: transparent; 
+      -webkit-touch-callout: none;
+    }
+
+    html, body { 
+      width: 100%; 
+      max-width: 100%; 
+      overflow-x: hidden !important; 
+      background-color: var(--bg); 
+      color: var(--text); 
+      -webkit-overflow-scrolling: touch;
+    }
+
+    body { 
+      padding: 12px; 
+      padding-top: max(16px, env(safe-area-inset-top)); 
+      padding-bottom: max(90px, env(safe-area-inset-bottom)); 
+    }
 
     #auth-screen { display: flex; flex-direction: column; justify-content: center; min-height: 80vh; max-width: 380px; margin: 0 auto; }
     
@@ -35,24 +61,36 @@
     .app-title { font-size: 1.25rem; font-weight: 800; background: linear-gradient(135deg, #FFF 30%, var(--sub)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     
     .nav-tabs { display: flex; gap: 4px; margin-bottom: 14px; background: rgba(255, 255, 255, 0.03); padding: 3px; border-radius: 12px; border: 1px solid var(--border); width: 100%; }
-    .tab-btn { flex: 1; padding: 10px 0; text-align: center; background: none; border: none; color: var(--sub); font-weight: 600; font-size: 0.8rem; border-radius: 99px; cursor: pointer; }
+    .tab-btn { flex: 1; padding: 12px 0; text-align: center; background: none; border: none; color: var(--sub); font-weight: 600; font-size: 0.85rem; border-radius: 99px; cursor: pointer; -webkit-user-select: none; }
     .tab-btn.active { background: var(--accent); color: #FFF; font-weight: 700; box-shadow: 0 4px 15px var(--accent-glow); }
 
     .card { background: var(--card); border-radius: 16px; padding: 14px; border: 1px solid var(--border); margin-bottom: 12px; width: 100%; }
-    .card-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .card-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
 
     .control-panel { background: var(--card); border-radius: 16px; padding: 12px; border: 1px solid var(--border); margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; width: 100%; }
     .panel-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
     
+    /* 16px Font-Size verhindert ungewollten Auto-Zoom auf iPhones */
     input[type="date"], input[type="number"], input[type="text"], input[type="password"], select { 
-      background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; outline: none; width: 100%; min-width: 0; -webkit-appearance: none; margin-bottom: 8px;
+      background: rgba(255, 255, 255, 0.04); 
+      border: 1px solid var(--border); 
+      color: var(--text); 
+      padding: 12px; 
+      border-radius: 10px; 
+      font-size: 16px !important; 
+      font-weight: 600; 
+      outline: none; 
+      width: 100%; 
+      min-width: 0; 
+      -webkit-appearance: none; 
+      margin-bottom: 8px;
     }
     input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
 
-    .day-selector-wrapper { display: flex; gap: 6px; width: 100%; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+    .day-selector-wrapper { display: flex; gap: 6px; width: 100%; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
     .day-selector-wrapper::-webkit-scrollbar { display: none; }
     
-    .day-btn { flex: 0 0 auto; min-width: 75px; padding: 9px 12px; text-align: center; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); color: var(--sub); font-weight: 600; font-size: 0.8rem; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+    .day-btn { flex: 0 0 auto; min-width: 75px; padding: 10px 14px; text-align: center; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); color: var(--sub); font-weight: 600; font-size: 0.85rem; border-radius: 8px; cursor: pointer; white-space: nowrap; -webkit-user-select: none; }
     .day-btn.active { background: rgba(99, 102, 241, 0.15); color: var(--accent); font-weight: 700; border-color: var(--border-accent); }
     .day-btn-add { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: var(--green); font-weight: 800; }
 
@@ -66,28 +104,28 @@
     .progress-bar-fill-kcal { height: 100%; background: linear-gradient(90deg, var(--accent), var(--orange)); width: 0%; border-radius: 99px; transition: width 0.4s ease; }
 
     .exercise-card { background: var(--card); border-radius: 14px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); width: 100%; position: relative; }
-    .exercise-title { font-size: 0.88rem; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; padding-right: 50px; }
+    .exercise-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; padding-right: 60px; }
     
-    .action-btn-group { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; }
-    .ex-action-btn { background: none; border: none; color: var(--sub); font-size: 0.9rem; cursor: pointer; padding: 2px 5px; border-radius: 6px; transition: color 0.2s; }
-    .ex-action-btn:hover { color: var(--text); }
-    .ex-action-btn.delete:hover { color: var(--red); }
+    .action-btn-group { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; }
+    .ex-action-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--sub); font-size: 0.95rem; cursor: pointer; padding: 4px 8px; border-radius: 8px; transition: color 0.2s; -webkit-user-select: none; }
+    .ex-action-btn:active { background: rgba(255,255,255,0.15); }
+    .ex-action-btn.delete:active { color: var(--red); }
 
     .set-container { margin-bottom: 8px; width: 100%; }
-    .set-row { display: grid; grid-template-columns: 42px 1fr 1fr; gap: 6px; align-items: center; width: 100%; }
+    .set-row { display: grid; grid-template-columns: 50px 1fr 1fr; gap: 8px; align-items: center; width: 100%; }
     .set-row input { text-align: center; font-weight: 700; margin-bottom: 0; }
-    .last-val-hint { font-size: 0.68rem; color: var(--sub); margin-top: 2px; text-align: right; grid-column: 2 / 4; }
+    .last-val-hint { font-size: 0.7rem; color: var(--sub); margin-top: 2px; text-align: right; grid-column: 2 / 4; }
 
-    .btn-small { padding: 8px 12px; background: var(--accent); color: #FFF; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.8rem; white-space: nowrap; margin-bottom: 8px; }
-    .btn-outline { padding: 6px 10px; background: transparent; color: var(--sub); border: 1px solid var(--border); border-radius: 6px; font-size: 0.7rem; cursor: pointer; }
-    .save-btn { width: 100%; padding: 14px; background: var(--accent); color: #FFF; border: none; border-radius: 12px; font-size: 0.9rem; font-weight: 800; cursor: pointer; margin-top: 8px; box-shadow: 0 4px 20px var(--accent-glow); }
+    .btn-small { padding: 10px 14px; background: var(--accent); color: #FFF; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.85rem; white-space: nowrap; margin-bottom: 8px; -webkit-user-select: none; }
+    .btn-outline { padding: 8px 12px; background: transparent; color: var(--sub); border: 1px solid var(--border); border-radius: 8px; font-size: 0.75rem; cursor: pointer; -webkit-user-select: none; }
+    .save-btn { width: 100%; padding: 16px; background: var(--accent); color: #FFF; border: none; border-radius: 14px; font-size: 0.95rem; font-weight: 800; cursor: pointer; margin-top: 8px; box-shadow: 0 4px 20px var(--accent-glow); -webkit-user-select: none; }
     .chart-container { height: 140px; width: 100%; margin-top: 6px; }
 
     .user-badge { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: rgba(99, 102, 241, 0.15); padding: 4px 8px; border-radius: 6px; }
     .input-group { display: flex; flex-direction: column; gap: 2px; width: 100%; }
-    .input-label { font-size: 0.72rem; color: var(--sub); font-weight: 600; margin-bottom: 2px; }
+    .input-label { font-size: 0.75rem; color: var(--sub); font-weight: 600; margin-bottom: 2px; }
 
-    /* VOLLBILD SCANNER OVERLAY */
+    /* VOLLBILD SCANNER OVERLAY (iOS Notched Ready) */
     #scanner-overlay { 
       display: none; 
       position: fixed; 
@@ -119,7 +157,7 @@
       top: max(16px, env(safe-area-inset-top)); 
       right: 16px; 
       z-index: 100000; 
-      background: rgba(0,0,0,0.7); 
+      background: rgba(0,0,0,0.75); 
       color: #FFF; 
       border: 1px solid rgba(255,255,255,0.25); 
       font-size: 0.9rem; 
@@ -128,6 +166,7 @@
       border-radius: 99px; 
       cursor: pointer; 
       backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
     }
   </style>
 </head>
@@ -137,7 +176,7 @@
   <div id="auth-screen">
     <div class="card">
       <div class="card-title" style="justify-content: center; font-size: 1.2rem; margin-bottom: 16px;">GymTracker Login</div>
-      <input type="text" id="auth-user" placeholder="Benutzername (z.B. Elias)">
+      <input type="text" id="auth-user" placeholder="Benutzername (z.B. Elias)" autocomplete="off">
       <input type="password" id="auth-password" placeholder="Passwort">
       <button class="save-btn" onclick="handleCustomLogin()">Anmelden</button>
     </div>
@@ -162,7 +201,7 @@
     <div id="view-workout">
       <div class="control-panel">
         <div class="panel-row">
-          <span style="font-size: 0.8rem; font-weight: 600; color: var(--sub); white-space: nowrap;">Datum:</span>
+          <span style="font-size: 0.85rem; font-weight: 600; color: var(--sub); white-space: nowrap;">Datum:</span>
           <input type="date" id="workout-date" onchange="renderWorkout()">
         </div>
         <div class="panel-row">
@@ -201,7 +240,7 @@
           </div>
           <div class="input-group" style="flex: 1;">
             <span class="input-label">Sätze</span>
-            <input type="number" id="new-ex-sets" value="3" min="1" max="10">
+            <input type="number" inputmode="numeric" id="new-ex-sets" value="3" min="1" max="10">
           </div>
         </div>
         <button class="btn-small" style="width: 100%; margin-bottom: 0;" onclick="addExerciseToCurrentDay()">Übung Hinzufügen</button>
@@ -222,11 +261,11 @@
         <div style="display: flex; gap: 8px;">
           <div class="input-group">
             <span class="input-label">Zielgewicht (kg)</span>
-            <input type="number" step="0.1" id="target-weight-input" placeholder="z.B. 78">
+            <input type="number" inputmode="decimal" step="0.1" id="target-weight-input" placeholder="z.B. 78">
           </div>
           <div class="input-group">
             <span class="input-label">Kcal Ziel (tägl.)</span>
-            <input type="number" id="target-kcal-input" placeholder="z.B. 2800">
+            <input type="number" inputmode="numeric" id="target-kcal-input" placeholder="z.B. 2800">
           </div>
         </div>
         <button class="btn-small" style="width: 100%; margin-bottom: 4px;" onclick="saveGoals()">Ziele Sichern</button>
@@ -244,7 +283,7 @@
       <div class="card">
         <div class="card-title">Aktuelles Gewicht eintragen</div>
         <div style="display: flex; gap: 6px;">
-          <input type="number" step="0.1" id="user-weight" placeholder="Heutiges Gewicht (kg)">
+          <input type="number" inputmode="decimal" step="0.1" id="user-weight" placeholder="Heutiges Gewicht (kg)">
           <button class="btn-small" onclick="saveWeight()">Sichern</button>
         </div>
       </div>
@@ -258,7 +297,7 @@
           <div class="progress-bar-fill" id="protein-progress"></div>
         </div>
         <div style="display: flex; gap: 6px; margin-bottom: 16px;">
-          <input type="number" id="protein-input" placeholder="Gramm (z.B. 40)">
+          <input type="number" inputmode="numeric" id="protein-input" placeholder="Gramm (z.B. 40)">
           <button class="btn-small" onclick="addProtein()">+ Hinzufügen</button>
         </div>
 
@@ -270,7 +309,7 @@
           <div class="progress-bar-fill-kcal" id="kcal-progress"></div>
         </div>
         <div style="display: flex; gap: 6px;">
-          <input type="number" id="kcal-input" placeholder="Kcal (z.B. 650)">
+          <input type="number" inputmode="numeric" id="kcal-input" placeholder="Kcal (z.B. 650)">
           <button class="btn-small" style="background: var(--orange);" onclick="addKcal()">+ Hinzufügen</button>
         </div>
 
@@ -566,7 +605,7 @@
             <button class="ex-action-btn" onclick="editExercise(${exIdx})" title="Übung bearbeiten">✏️</button>
             <button class="ex-action-btn delete" onclick="removeExercise(${exIdx})" title="Übung löschen">✕</button>
           </div>
-          <div class="exercise-title">${ex.name} ${ex.subtitle ? `<span style="font-size:0.72rem; color:var(--accent);">${ex.subtitle}</span>` : ''}</div>
+          <div class="exercise-title">${ex.name} ${ex.subtitle ? `<span style="font-size:0.75rem; color:var(--accent);">${ex.subtitle}</span>` : ''}</div>
         `;
 
         for(let s = 0; s < ex.sets; s++) {
@@ -580,9 +619,9 @@
           html += `
             <div class="set-container">
               <div class="set-row">
-                <div style="font-size:0.78rem; color:var(--sub); font-weight:600;">Satz ${s + 1}</div>
-                <input type="number" step="0.5" placeholder="kg" id="w_${exIdx}_${s}" value="${currentW}">
-                <input type="number" placeholder="Wdh" id="r_${exIdx}_${s}" value="${currentR}">
+                <div style="font-size:0.8rem; color:var(--sub); font-weight:600;">Satz ${s + 1}</div>
+                <input type="number" inputmode="decimal" step="0.5" placeholder="kg" id="w_${exIdx}_${s}" value="${currentW}">
+                <input type="number" inputmode="numeric" placeholder="Wdh" id="r_${exIdx}_${s}" value="${currentR}">
               </div>
               <div class="last-val-hint">${hintText}</div>
             </div>`;
@@ -619,12 +658,13 @@
       renderChart();
     }
 
+    // BEARBEITEN VON NAME, FOKUS UND SÄTZEN
     async function editExercise(exIdx) {
       const ex = userPlans[currentDay].exercises[exIdx];
       if (!ex) return;
 
       const newName = prompt("Neuer Name der Übung:", ex.name);
-      if (newName === null) return; // Abgebrochen
+      if (newName === null) return;
 
       const newSub = prompt("Neuer Fokus / Untertitel (optional):", ex.subtitle || "");
       if (newSub === null) return;
@@ -634,7 +674,6 @@
 
       const newSets = parseInt(newSetsStr) || ex.sets;
 
-      // Werte aktualisieren
       ex.name = newName.trim() || ex.name;
       if (newSub.trim()) {
         ex.subtitle = newSub.trim();
@@ -643,7 +682,6 @@
       }
       ex.sets = Math.max(1, Math.min(10, newSets));
 
-      // In Cloud speichern
       await supabaseClient.from('user_plans').upsert({
         user_id: currentUser.id,
         day_key: currentDay,
