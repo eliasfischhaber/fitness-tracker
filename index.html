@@ -137,10 +137,14 @@
     .save-btn { width: 100%; padding: 16px; background: var(--accent); color: #FFF; border: none; border-radius: 14px; font-size: 0.95rem; font-weight: 800; cursor: pointer; margin-top: 8px; box-shadow: 0 4px 20px var(--accent-glow); -webkit-user-select: none; }
     .chart-container { height: 140px; width: 100%; margin-top: 6px; }
 
-    /* LÖSCHEN DER TAGE STYLING */
     .history-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
     .history-chip { display: flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); padding: 4px 8px; border-radius: 8px; font-size: 0.75rem; color: var(--sub); font-weight: 600; }
     .history-chip button { background: none; border: none; color: var(--red); cursor: pointer; font-size: 0.8rem; line-height: 1; }
+
+    /* PRODUKT SEARCH RESULT STYLING */
+    .search-results-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+    .search-result-item { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 10px; padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .search-result-item:active { background: rgba(99, 102, 241, 0.15); border-color: var(--border-accent); }
 
     .user-badge { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: rgba(99, 102, 241, 0.15); padding: 4px 8px; border-radius: 6px; }
     .input-group { display: flex; flex-direction: column; gap: 2px; width: 100%; }
@@ -245,7 +249,6 @@
         <select id="exercise-picker" style="display: none; margin-bottom:6px;" onchange="renderChart()"></select>
         <div class="chart-container"><canvas id="progressChart"></canvas></div>
         
-        <!-- NEU: LISTE ALLER GESPEICHERTEN TAGE ZUM LÖSCHEN -->
         <div id="history-manage-container" style="display: none; margin-top: 12px;">
           <div style="font-size: 0.75rem; color: var(--sub); font-weight: 700;">📅 Gespeicherte Einheiten löschen:</div>
           <div class="history-list" id="history-chip-list"></div>
@@ -342,7 +345,17 @@
 
         <!-- SCANNER BUTTON -->
         <div style="margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px;">
-          <button class="btn-small" style="width: 100%; background: linear-gradient(135deg, var(--accent), #4F46E5); padding: 12px; margin-bottom: 0;" onclick="startBarcodeScanner()">📷 Barcode / QR-Code scannen</button>
+          <button class="btn-small" style="width: 100%; background: linear-gradient(135deg, var(--accent), #4F46E5); padding: 12px; margin-bottom: 10px;" onclick="startBarcodeScanner()">📷 Barcode / QR-Code scannen</button>
+        </div>
+
+        <!-- NEU: TEXTSUCHE FÜR LEBENSMITTEL -->
+        <div style="border-top: 1px solid var(--border); padding-top: 12px;">
+          <div class="card-title" style="font-size:0.85rem; margin-bottom:6px;">🔎 Lebensmittel nach Name suchen</div>
+          <div style="display: flex; gap: 6px;">
+            <input type="text" id="food-search-query" placeholder="z.B. Pfanner Eistee Zitrone" onkeyup="if(event.key==='Enter') searchFoodByName()">
+            <button class="btn-small" onclick="searchFoodByName()">Suchen</button>
+          </div>
+          <div class="search-results-list" id="food-search-results"></div>
         </div>
       </div>
     </div>
@@ -845,7 +858,6 @@
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#71717A' } }, y: { ticks: { color: '#71717A' } } } }
       });
 
-      // LÖSCH-CHIPS ERZEUGEN
       renderHistoryChips(dates);
     }
 
@@ -1103,44 +1115,93 @@
 
         if (data.status === 1) {
           const p = data.product;
-          const name = p.product_name || "Unbekanntes Produkt";
-          const pPer100 = p.nutriments['proteins_100g'] || 0;
-          const kPer100 = p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'] || 0;
-
-          const categories = (p.categories_tags || []).join(' ').toLowerCase();
-          const quantity = (p.quantity || "").toLowerCase();
-          
-          const isDrink = categories.includes('beverage') || categories.includes('getränk') || quantity.includes('ml') || quantity.includes('liter') || quantity.match(/\d\s*l\b/);
-
-          const unit = isDrink ? "ml" : "g";
-          const actionText = isDrink ? "getrunken" : "gegessen";
-          const unitWord = isDrink ? "Milliliter" : "Gramm";
-
-          const amountStr = prompt(`Produkt gefunden: ${name}\n\nNährwerte (pro 100${unit}):\n- Protein: ${pPer100}g\n- Kalorien: ${kPer100} kcal\n\nWie viel ${unitWord} hast du ${actionText}?`, "100");
-          
-          if (amountStr) {
-            const amount = parseFloat(amountStr);
-            if (!isNaN(amount) && amount > 0) {
-              const addP = Math.round((pPer100 * amount) / 100);
-              const addK = Math.round((kPer100 * amount) / 100);
-
-              todayProtein += addP;
-              todayKcal += addK;
-
-              await supabaseClient.from('daily_logs').upsert(
-                { date: todayStr, weight: userWeight, protein: todayProtein, kcal: todayKcal, user_id: currentUser.id },
-                { onConflict: 'date,user_id' }
-              );
-
-              updateNutritionUI();
-              alert(`Hinzugefügt für ${name} (${amount}${unit}):\n+${addP}g Protein\n+${addK} kcal`);
-            }
-          }
+          processAndAddProduct(p);
         } else {
           alert("Produkt wurde leider nicht in der Lebensmittel-Datenbank gefunden.");
         }
       } catch (err) {
         alert("Fehler beim Abrufen der Produktdaten.");
+      }
+    }
+
+    // LEBENSMITTEL-TEXTSUCHE LOGIK
+    async function searchFoodByName() {
+      const query = document.getElementById('food-search-query').value.trim();
+      const resultsContainer = document.getElementById('food-search-results');
+
+      if (!query) return alert("Bitte gib einen Suchbegriff ein!");
+
+      resultsContainer.innerHTML = `<div style="font-size:0.75rem; color:var(--sub); text-align:center; padding: 10px;">Suche läuft...</div>`;
+
+      try {
+        const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=5`);
+        const data = await res.json();
+
+        resultsContainer.innerHTML = '';
+
+        if (data.products && data.products.length > 0) {
+          data.products.forEach(p => {
+            const name = p.product_name || "Unbekanntes Produkt";
+            const brand = p.brands || "";
+            const pPer100 = p.nutriments ? (p.nutriments['proteins_100g'] || 0) : 0;
+            const kPer100 = p.nutriments ? (p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'] || 0) : 0;
+
+            const item = document.createElement('div');
+            chipName = brand ? `${brand} - ${name}` : name;
+            item.className = 'search-result-item';
+            item.innerHTML = `
+              <div>
+                <div style="font-size:0.8rem; font-weight:700; color:var(--text);">${chipName}</div>
+                <div style="font-size:0.7rem; color:var(--sub);">Pro 100g/ml: ${pPer100}g P | ${kPer100} kcal</div>
+              </div>
+              <button class="btn-small" style="margin-bottom:0; padding:6px 10px; font-size:0.75rem;">Wählen</button>
+            `;
+            item.onclick = () => processAndAddProduct(p);
+            resultsContainer.appendChild(item);
+          });
+        } else {
+          resultsContainer.innerHTML = `<div style="font-size:0.75rem; color:var(--sub); text-align:center; padding: 10px;">Keine Produkte gefunden.</div>`;
+        }
+      } catch (err) {
+        resultsContainer.innerHTML = `<div style="font-size:0.75rem; color:var(--red); text-align:center; padding: 10px;">Fehler bei der Suche.</div>`;
+      }
+    }
+
+    async function processAndAddProduct(p) {
+      const name = (p.brands ? p.brands + " - " : "") + (p.product_name || "Unbekanntes Produkt");
+      const pPer100 = p.nutriments ? (p.nutriments['proteins_100g'] || 0) : 0;
+      const kPer100 = p.nutriments ? (p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'] || 0) : 0;
+
+      const categories = (p.categories_tags || []).join(' ').toLowerCase();
+      const quantity = (p.quantity || "").toLowerCase();
+      
+      const isDrink = categories.includes('beverage') || categories.includes('getränk') || quantity.includes('ml') || quantity.includes('liter') || quantity.match(/\d\s*l\b/);
+
+      const unit = isDrink ? "ml" : "g";
+      const actionText = isDrink ? "getrunken" : "gegessen";
+      const unitWord = isDrink ? "Milliliter" : "Gramm";
+
+      const amountStr = prompt(`Produkt: ${name}\n\nNährwerte (pro 100${unit}):\n- Protein: ${pPer100}g\n- Kalorien: ${kPer100} kcal\n\nWie viel ${unitWord} hast du ${actionText}?`, "100");
+      
+      if (amountStr) {
+        const amount = parseFloat(amountStr);
+        if (!isNaN(amount) && amount > 0) {
+          const addP = Math.round((pPer100 * amount) / 100);
+          const addK = Math.round((kPer100 * amount) / 100);
+
+          todayProtein += addP;
+          todayKcal += addK;
+
+          await supabaseClient.from('daily_logs').upsert(
+            { date: todayStr, weight: userWeight, protein: todayProtein, kcal: todayKcal, user_id: currentUser.id },
+            { onConflict: 'date,user_id' }
+          );
+
+          updateNutritionUI();
+          document.getElementById('food-search-results').innerHTML = '';
+          document.getElementById('food-search-query').value = '';
+          alert(`Hinzugefügt für ${name} (${amount}${unit}):\n+${addP}g Protein\n+${addK} kcal`);
+        }
       }
     }
 
