@@ -564,11 +564,15 @@
     }
 
     async function saveTodayNutriToCloud() {
-      await supabaseClient.from('daily_logs').upsert({ 
+      const { error } = await supabaseClient.from('daily_logs').upsert({ 
         date: todayStr, weight: userWeight, protein: todayNutri.protein, kcal: todayNutri.kcal, 
         fat: todayNutri.fat, sat_fat: todayNutri.satFat, carbs: todayNutri.carbs, sugar: todayNutri.sugar, 
         fiber: todayNutri.fiber, salt: todayNutri.salt, today_entries: todayEntries, user_id: currentUser.id 
       }, { onConflict: 'date,user_id' });
+      if (error) {
+        console.error("Fehler beim Speichern des Tages-Trackings:", error.message, error);
+        alert("Eintrag konnte nicht gespeichert werden: " + error.message);
+      }
     }
 
     async function saveCloudFoodLists() {
@@ -617,11 +621,18 @@
         console.log("Keine Goals in Supabase für diesen User gefunden.");
       }
 
-      const { data: logs } = await supabaseClient.from('daily_logs').select('*').eq('user_id', currentUser.id);
+      const { data: logs, error: logsError } = await supabaseClient.from('daily_logs').select('*').eq('user_id', currentUser.id);
+      if (logsError) {
+        console.error("Fehler beim Laden der Tages-Logs:", logsError.message, logsError);
+      }
       if (logs && logs.length > 0) {
         weightHistory = logs.filter(l => l.weight > 0).sort((a, b) => new Date(a.date) - new Date(b.date));
         if (weightHistory.length > 0) { userWeight = weightHistory[weightHistory.length - 1].weight; document.getElementById('latest-weight-display').innerText = `${userWeight} kg`; }
-        const todayLog = logs.find(l => l.date === todayStr);
+        const todaysLogs = logs.filter(l => l.date === todayStr);
+        if (todaysLogs.length > 1) {
+          console.warn(`Achtung: ${todaysLogs.length} Zeilen in daily_logs für heute gefunden (sollte nur 1 sein). Vermutlich fehlt der UNIQUE-Constraint auf (date,user_id). Nehme die letzte.`);
+        }
+        const todayLog = todaysLogs[todaysLogs.length - 1];
         if (todayLog) {
           todayNutri = { protein: todayLog.protein || 0, kcal: todayLog.kcal || 0, fat: todayLog.fat || 0, satFat: todayLog.sat_fat || 0, carbs: todayLog.carbs || 0, sugar: todayLog.sugar || 0, fiber: todayLog.fiber || 0, salt: todayLog.salt || 0 };
           todayEntries = todayLog.today_entries || [];
