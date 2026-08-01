@@ -70,12 +70,11 @@
     .progress-bar-bg { width: 100%; height: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); margin: 6px 0 4px 0; }
     .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); width: 0%; border-radius: 99px; transition: width 0.4s ease; }
 
-    /* FIX: Kompakteres Layout für Übungskarte & Buttons oben rechts */
     .exercise-card { background: var(--card); border-radius: 14px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); width: 100%; position: relative; }
     .exercise-title { 
       font-size: 0.88rem; font-weight: 700; margin-bottom: 12px; 
       display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; 
-      padding-right: 125px; /* Genug Platz für die 4 kleinen Action-Buttons */
+      padding-right: 125px; 
     }
     .exercise-subtitle { font-size: 0.72rem; color: var(--accent); font-weight: 600; }
     
@@ -103,10 +102,11 @@
     .history-chip button { background: none; border: none; color: var(--red); cursor: pointer; font-size: 0.8rem; line-height: 1; }
 
     .search-results-list { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
-    .search-result-item { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 10px; padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .search-result-item { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 10px; padding: 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
     .search-result-item:active { background: rgba(99, 102, 241, 0.15); border-color: var(--border-accent); }
+    .food-info-clickable { flex: 1; cursor: pointer; min-width: 0; }
 
-    .item-fav-btn { background: none; border: none; font-size: 1.1rem; padding: 4px 8px; cursor: pointer; }
+    .item-fav-btn { background: none; border: none; font-size: 1.1rem; padding: 4px 8px; cursor: pointer; flex-shrink: 0; }
     .remaining-hint { font-size: 0.72rem; color: var(--sub); margin-bottom: 8px; font-weight: 600; text-align: right; }
     .user-badge { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: rgba(99, 102, 241, 0.15); padding: 4px 8px; border-radius: 6px; }
     .input-group { display: flex; flex-direction: column; gap: 2px; width: 100%; }
@@ -848,52 +848,93 @@
       return { protein: Math.round((n.proteins_100g || 0)*10)/10, kcal: Math.round(n['energy-kcal_100g'] || n['energy-kcal'] || 0), fat: Math.round((n.fat_100g || 0)*10)/10, satFat: Math.round((n['saturated-fat_100g'] || 0)*10)/10, carbs: Math.round((n.carbohydrates_100g || 0)*10)/10, sugar: Math.round((n.sugars_100g || 0)*10)/10, fiber: Math.round((n.fiber_100g || 0)*10)/10, salt: Math.round((n.salt_100g || 0)*10)/10 };
     }
 
-    function createFoodCard(p) {
-      const name = (p.brands ? p.brands + " - " : "") + (p.product_name || "Produkt");
-      const nutris = extractNutris(p);
-      const foodObj = { name, nutris, categories: (p.categories_tags || []).join(' '), quantity: p.quantity || "", code: p.code || "" };
+    function createFoodCard(foodObj) {
+      const name = foodObj.name || "Produkt";
+      const nutris = foodObj.nutris || { protein: 0, kcal: 0, carbs: 0, fat: 0 };
       const isFav = favoriteFoods.some(f => f.name === name);
 
       const item = document.createElement('div');
       item.className = 'search-result-item';
-      item.innerHTML = `
-        <div style="flex:1; margin-right:8px;" onclick='processAndAddProductDirect(${JSON.stringify(foodObj)})'>
-          <div style="font-size:0.8rem; font-weight:700;">${name}</div>
-          <div style="font-size:0.7rem; color:var(--sub);">${nutris.protein}g P | ${nutris.kcal} kcal</div>
-        </div>
-        <button class="item-fav-btn" onclick='toggleFavorite(${JSON.stringify(foodObj)})'>${isFav ? '⭐️' : '☆'}</button>
+
+      const infoDiv = document.createElement('div');
+      infoDiv.className = 'food-info-clickable';
+      infoDiv.innerHTML = `
+        <div style="font-size:0.8rem; font-weight:700; color:var(--text);">${name}</div>
+        <div style="font-size:0.7rem; color:var(--sub);">${nutris.protein}g P | ${nutris.kcal} kcal | ${nutris.carbs}g KH | ${nutris.fat}g Fett</div>
       `;
+      infoDiv.onclick = () => processAndAddProductDirect(foodObj);
+
+      const favBtn = document.createElement('button');
+      favBtn.className = 'item-fav-btn';
+      favBtn.innerText = isFav ? '⭐️' : '☆';
+      favBtn.onclick = (e) => {
+        e.stopPropagation();
+        toggleFavorite(foodObj);
+      };
+
+      item.appendChild(infoDiv);
+      item.appendChild(favBtn);
       return item;
+    }
+
+    function createFoodCardFromApi(p) {
+      const name = (p.brands ? p.brands + " - " : "") + (p.product_name || "Produkt");
+      const foodObj = { 
+        name, 
+        nutris: extractNutris(p), 
+        categories: (p.categories_tags || []).join(' '), 
+        quantity: p.quantity || "", 
+        code: p.code || "" 
+      };
+      return createFoodCard(foodObj);
     }
 
     async function toggleFavorite(foodObj) {
       const idx = favoriteFoods.findIndex(f => f.name === foodObj.name);
-      if (idx >= 0) favoriteFoods.splice(idx, 1); else favoriteFoods.push(foodObj);
+      if (idx >= 0) favoriteFoods.splice(idx, 1); 
+      else favoriteFoods.push(foodObj);
+
       await saveCloudFoodLists();
       renderFavoritesUI();
+      
+      const query = document.getElementById('food-search-query').value.trim();
+      if (query) searchFoodByName();
     }
 
     function renderFavoritesUI() {
-      const sec = document.getElementById('favorites-section'); const list = document.getElementById('favorites-list');
-      list.innerHTML = ''; if (!favoriteFoods.length) { sec.style.display = 'none'; return; }
-      sec.style.display = 'block'; favoriteFoods.forEach(f => list.appendChild(createFoodCard({ name: f.name, nutris: f.nutris, categories: f.categories, quantity: f.quantity, code: f.code })));
+      const sec = document.getElementById('favorites-section'); 
+      const list = document.getElementById('favorites-list');
+      list.innerHTML = ''; 
+      if (!favoriteFoods.length) { sec.style.display = 'none'; return; }
+      sec.style.display = 'block'; 
+      favoriteFoods.forEach(f => list.appendChild(createFoodCard(f)));
     }
 
     async function addToRecent(fObj) {
       recentFoods = recentFoods.filter(r => r.name !== fObj.name);
-      recentFoods.unshift(fObj); if (recentFoods.length > 5) recentFoods.pop();
+      recentFoods.unshift(fObj); 
+      if (recentFoods.length > 5) recentFoods.pop();
       await saveCloudFoodLists();
       renderRecentUI();
     }
 
     function renderRecentUI() {
-      const sec = document.getElementById('recent-food-section'); const list = document.getElementById('recent-food-list');
-      list.innerHTML = ''; if (!recentFoods.length) { sec.style.display = 'none'; return; }
-      sec.style.display = 'block'; recentFoods.forEach(f => list.appendChild(createFoodCard({ name: f.name, nutris: f.nutris, categories: f.categories, quantity: f.quantity, code: f.code })));
+      const sec = document.getElementById('recent-food-section'); 
+      const list = document.getElementById('recent-food-list');
+      list.innerHTML = ''; 
+      if (!recentFoods.length) { sec.style.display = 'none'; return; }
+      sec.style.display = 'block'; 
+      recentFoods.forEach(f => list.appendChild(createFoodCard(f)));
     }
 
     function processAndAddProduct(p) {
-      processAndAddProductDirect({ name: (p.brands ? p.brands + " - " : "") + (p.product_name || "Produkt"), nutris: extractNutris(p), categories: (p.categories_tags || []).join(' '), quantity: p.quantity || "", code: p.code || "" });
+      processAndAddProductDirect({ 
+        name: (p.brands ? p.brands + " - " : "") + (p.product_name || "Produkt"), 
+        nutris: extractNutris(p), 
+        categories: (p.categories_tags || []).join(' '), 
+        quantity: p.quantity || "", 
+        code: p.code || "" 
+      });
     }
 
     async function processAndAddProductDirect(foodObj) {
@@ -913,6 +954,26 @@
       await addToRecent(foodObj);
       renderNutritionUI();
       alert("Hinzugefügt!");
+    }
+
+    // Bei Live-Suche OpenFoodFacts API Cards rendern
+    async function searchFoodByName() {
+      const q = document.getElementById('food-search-query').value.trim();
+      const container = document.getElementById('food-search-results');
+      if (!q) return;
+      container.innerHTML = `<div style="font-size:0.75rem; color:var(--sub); text-align:center;">Suche...</div>`;
+      try {
+        const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=5`);
+        const data = await res.json();
+        container.innerHTML = '';
+        if (data.products && data.products.length > 0) {
+          data.products.forEach(p => container.appendChild(createFoodCardFromApi(p)));
+        } else {
+          container.innerHTML = `<div style="font-size:0.75rem; color:var(--sub); text-align:center; padding: 6px;">Keine Produkte gefunden.</div>`;
+        }
+      } catch(e) {
+        container.innerHTML = `<div style="font-size:0.75rem; color:var(--red); text-align:center; padding: 6px;">Fehler bei der Suche.</div>`;
+      }
     }
 
     window.onload = init;
