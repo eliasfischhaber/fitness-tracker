@@ -88,6 +88,18 @@
     }
     input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
 
+    /* CHECKBOX GRID SYSTEM */
+    .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-bottom: 12px; }
+    .checkbox-label { 
+      display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.03); 
+      border: 1px solid var(--border); padding: 8px 10px; border-radius: 8px; font-size: 0.78rem; 
+      font-weight: 600; cursor: pointer; color: var(--sub); transition: all 0.2s;
+    }
+    .checkbox-label:has(input:checked) { background: rgba(99, 102, 241, 0.15); border-color: var(--border-accent); color: var(--text); }
+    .checkbox-label input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; cursor: pointer; }
+
+    .goals-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; margin-bottom: 10px; }
+
     .day-selector-wrapper { display: flex; gap: 6px; width: 100%; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
     .day-selector-wrapper::-webkit-scrollbar { display: none; }
     
@@ -156,6 +168,25 @@
 
     .nutri-card-item { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px dashed var(--border); }
     .nutri-card-item:last-child { border-bottom: none; margin-bottom: 0; }
+
+    /* AUSKLAPPBARER BEREICH STYLES */
+    .toggle-section-btn {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 10px;
+    }
+    .toggle-section-btn:active { background: rgba(255, 255, 255, 0.08); }
 
     /* VOLLBILD SCANNER OVERLAY */
     #scanner-overlay { 
@@ -294,22 +325,6 @@
       </div>
 
       <div class="card">
-        <div class="card-title">Ziel-Einstellungen</div>
-        <div style="display: flex; gap: 8px;">
-          <div class="input-group">
-            <span class="input-label">Zielgewicht (kg)</span>
-            <input type="number" inputmode="decimal" step="0.1" id="target-weight-input" placeholder="z.B. 78">
-          </div>
-          <div class="input-group">
-            <span class="input-label">Kcal Ziel (tägl.)</span>
-            <input type="number" inputmode="numeric" id="target-kcal-input" placeholder="z.B. 2800">
-          </div>
-        </div>
-        <button class="btn-small" style="width: 100%; margin-bottom: 4px;" onclick="saveGoals()">Ziele Sichern</button>
-        <div style="font-size: 0.75rem; color: var(--sub); margin-top: 4px;" id="protein-target-text">Proteinziel: 0 g (basiert auf Zielgewicht)</div>
-      </div>
-
-      <div class="card">
         <div class="card-title">
           <span>Körpergewichtsverlauf</span>
           <span style="font-size:0.78rem; color:var(--green); font-weight:800;" id="latest-weight-display">-- kg</span>
@@ -331,24 +346,31 @@
           <span>Nährwert-Tracking</span>
         </div>
         
-        <div class="input-group" style="margin-bottom: 14px;">
-          <span class="input-label">Sichtbare Nährwerte wählen</span>
-          <select id="nutrition-mode-select" onchange="changeNutritionMode()" style="margin-bottom: 0;">
-            <option value="PROTEIN_KCAL">Protein & Kalorien (Default)</option>
-            <option value="ALL">Alle Nährwerte (Makros, Zucker, Fett etc.)</option>
-            <option value="PROTEIN">Nur Protein</option>
-            <option value="KCAL">Nur Kalorien</option>
-            <option value="CARBS">Nur Kohlenhydrate & Zucker</option>
-            <option value="FAT">Nur Fett & Gesättigte Fettsäuren</option>
-          </select>
+        <!-- MULTISELECT CHECKBOX GESTRUKTURIERT -->
+        <div class="input-group" style="margin-bottom: 12px;">
+          <span class="input-label" style="margin-bottom: 6px;">Sichtbare Nährwerte wählen:</span>
+          <div class="checkbox-grid" id="nutri-checkbox-grid"></div>
         </div>
 
-        <div id="dynamic-nutrition-container"></div>
+        <!-- ZIELDATEN FÜR AUSGEWÄHLTE NÄHRWERTE -->
+        <div style="border-top: 1px solid var(--border); padding-top: 10px; margin-bottom: 12px;">
+          <div style="font-size: 0.78rem; font-weight: 700; color: var(--sub); margin-bottom: 6px;">🎯 Deine Tagesziele konfigurieren (Muskelaufbau):</div>
+          <div class="goals-grid" id="nutri-goals-grid"></div>
+          <button class="btn-small" style="width: 100%; margin-bottom: 6px;" onclick="saveGoals()">Ziele Speichern</button>
+        </div>
 
-        <!-- LISTE DER HEUTE GETRACKTEN EINZELEINTRÄGE (MIT LÖSCHEN-BUTTON) -->
-        <div id="today-entries-container" style="display: none; margin-top: 14px; border-top: 1px solid var(--border); padding-top: 10px;">
-          <div style="font-size: 0.75rem; color: var(--sub); font-weight: 700; margin-bottom: 6px;">📝 Heute getrackte Einträge:</div>
-          <div class="search-results-list" id="today-entries-list"></div>
+        <div id="dynamic-nutrition-container" style="border-top: 1px solid var(--border); padding-top: 12px;"></div>
+
+        <!-- AUSKLAPPBARER VERLAUF DER HEUTE GETRACKTEN EINZELEINTRÄGE -->
+        <div id="today-entries-wrapper" style="display: none; border-top: 1px solid var(--border); margin-top: 12px; padding-top: 4px;">
+          <button class="toggle-section-btn" onclick="toggleTodayEntriesVisibility()">
+            <span id="today-entries-toggle-title">📝 Heute getrackte Einträge (0)</span>
+            <span id="today-entries-toggle-icon">▼</span>
+          </button>
+          
+          <div id="today-entries-container" style="display: none; margin-top: 8px;">
+            <div class="search-results-list" id="today-entries-list"></div>
+          </div>
         </div>
 
         <!-- SCANNER BUTTON -->
@@ -434,15 +456,17 @@
     };
 
     const NUTRITION_FIELDS = {
-      protein: { label: "Protein", unit: "g", color: "var(--accent)", fill: "linear-gradient(90deg, var(--accent), var(--green))" },
-      kcal: { label: "Kalorien", unit: "kcal", color: "var(--orange)", fill: "linear-gradient(90deg, var(--accent), var(--orange))" },
-      fat: { label: "Fett", unit: "g", color: "var(--red)", fill: "linear-gradient(90deg, var(--accent), var(--red))" },
-      satFat: { label: "Gesättigte Fettsäuren", unit: "g", color: "#F43F5E", fill: "linear-gradient(90deg, var(--accent), #F43F5E)" },
-      carbs: { label: "Kohlenhydrate", unit: "g", color: "var(--blue)", fill: "linear-gradient(90deg, var(--accent), var(--blue))" },
-      sugar: { label: "Zucker", unit: "g", color: "var(--purple)", fill: "linear-gradient(90deg, var(--accent), var(--purple))" },
-      fiber: { label: "Ballaststoffe", unit: "g", color: "#84CC16", fill: "linear-gradient(90deg, var(--accent), #84CC16)" },
-      salt: { label: "Salz", unit: "g", color: "#06B6D4", fill: "linear-gradient(90deg, var(--accent), #06B6D4)" }
+      protein: { label: "Protein", unit: "g", color: "var(--accent)", fill: "linear-gradient(90deg, var(--accent), var(--green))", defaultTarget: 160 },
+      kcal: { label: "Kalorien", unit: "kcal", color: "var(--orange)", fill: "linear-gradient(90deg, var(--accent), var(--orange))", defaultTarget: 2800 },
+      carbs: { label: "Kohlenhydrate", unit: "g", color: "var(--blue)", fill: "linear-gradient(90deg, var(--accent), var(--blue))", defaultTarget: 350 },
+      fat: { label: "Fett", unit: "g", color: "var(--red)", fill: "linear-gradient(90deg, var(--accent), var(--red))", defaultTarget: 75 },
+      sugar: { label: "Zucker", unit: "g", color: "var(--purple)", fill: "linear-gradient(90deg, var(--accent), var(--purple))", defaultTarget: 50 },
+      satFat: { label: "Gesättigte Fetts", unit: "g", color: "#F43F5E", fill: "linear-gradient(90deg, var(--accent), #F43F5E)", defaultTarget: 25 },
+      fiber: { label: "Ballaststoffe", unit: "g", color: "#84CC16", fill: "linear-gradient(90deg, var(--accent), #84CC16)", defaultTarget: 30 },
+      salt: { label: "Salz", unit: "g", color: "#06B6D4", fill: "linear-gradient(90deg, var(--accent), #06B6D4)", defaultTarget: 6 }
     };
+
+    let selectedNutriKeys = ['protein', 'kcal'];
 
     let userPlans = {};
     let currentDay = 'A';
@@ -450,13 +474,17 @@
     let weightHistory = [];
     let userWeight = 75;
     let targetWeight = 75;
-    let targetKcal = 2500;
+
+    let nutriTargets = {
+      protein: 150, kcal: 2800, carbs: 350, fat: 75, sugar: 50, satFat: 25, fiber: 30, salt: 6
+    };
 
     let todayNutri = {
       protein: 0, kcal: 0, fat: 0, satFat: 0, carbs: 0, sugar: 0, fiber: 0, salt: 0
     };
 
-    let todayEntries = []; // Speichert alle heute eingegebenen Mahlzeiten/Werte
+    let todayEntries = [];
+    let isTodayEntriesOpen = false; // Status für Ausklapp-Fach
 
     let currentUser = null;
     let myChart = null;
@@ -488,7 +516,7 @@
         document.getElementById('workout-date').value = todayStr;
         
         loadLocalFoodLists();
-        loadNutritionMode();
+        loadSelectedNutriKeys();
         await loadAllData();
         renderWeekStrip();
       } else {
@@ -497,45 +525,100 @@
       }
     }
 
-    function loadNutritionMode() {
+    function loadSelectedNutriKeys() {
       if (!currentUser) return;
-      const savedMode = localStorage.getItem(`nutri_mode_${currentUser.id}`) || 'PROTEIN_KCAL';
-      document.getElementById('nutrition-mode-select').value = savedMode;
-      renderNutritionUI();
-    }
-
-    function changeNutritionMode() {
-      const mode = document.getElementById('nutrition-mode-select').value;
-      if (currentUser) {
-        localStorage.setItem(`nutri_mode_${currentUser.id}`, mode);
+      const saved = localStorage.getItem(`selected_nutris_${currentUser.id}`);
+      if (saved) {
+        try { selectedNutriKeys = JSON.parse(saved); } catch(e) {}
       }
+      renderCheckboxGrid();
+    }
+
+    function saveSelectedNutriKeys() {
+      if (!currentUser) return;
+      localStorage.setItem(`selected_nutris_${currentUser.id}`, JSON.stringify(selectedNutriKeys));
+    }
+
+    function renderCheckboxGrid() {
+      const grid = document.getElementById('nutri-checkbox-grid');
+      grid.innerHTML = '';
+
+      Object.keys(NUTRITION_FIELDS).forEach(key => {
+        const info = NUTRITION_FIELDS[key];
+        const isChecked = selectedNutriKeys.includes(key);
+
+        const lbl = document.createElement('label');
+        lbl.className = 'checkbox-label';
+        lbl.innerHTML = `
+          <input type="checkbox" value="${key}" ${isChecked ? 'checked' : ''} onchange="toggleNutriKey('${key}')">
+          <span>${info.label}</span>
+        `;
+        grid.appendChild(lbl);
+      });
+
+      renderGoalsGrid();
+    }
+
+    function toggleNutriKey(key) {
+      if (selectedNutriKeys.includes(key)) {
+        if (selectedNutriKeys.length <= 1) {
+          alert("Mindestens ein Nährwert muss ausgewählt bleiben!");
+          renderCheckboxGrid();
+          return;
+        }
+        selectedNutriKeys = selectedNutriKeys.filter(k => k !== key);
+      } else {
+        selectedNutriKeys.push(key);
+      }
+      saveSelectedNutriKeys();
+      renderCheckboxGrid();
       renderNutritionUI();
     }
 
-    function getActiveNutriKeys() {
-      const mode = document.getElementById('nutrition-mode-select').value;
-      if (mode === 'ALL') return ['protein', 'kcal', 'carbs', 'sugar', 'fat', 'satFat', 'fiber', 'salt'];
-      if (mode === 'PROTEIN') return ['protein'];
-      if (mode === 'KCAL') return ['kcal'];
-      if (mode === 'CARBS') return ['carbs', 'sugar'];
-      if (mode === 'FAT') return ['fat', 'satFat'];
-      return ['protein', 'kcal'];
+    function renderGoalsGrid() {
+      const goalsGrid = document.getElementById('nutri-goals-grid');
+      goalsGrid.innerHTML = '';
+
+      const weightDiv = document.createElement('div');
+      weightDiv.className = 'input-group';
+      weightDiv.innerHTML = `
+        <span class="input-label">Zielgewicht (kg)</span>
+        <input type="number" inputmode="decimal" step="0.1" id="target-weight-input" value="${targetWeight}">
+      `;
+      goalsGrid.appendChild(weightDiv);
+
+      selectedNutriKeys.forEach(key => {
+        const info = NUTRITION_FIELDS[key];
+        const currentTarget = nutriTargets[key] !== undefined ? nutriTargets[key] : info.defaultTarget;
+
+        const div = document.createElement('div');
+        div.className = 'input-group';
+
+        let extraNote = '';
+        if (key === 'protein') {
+          extraNote = ` (Auto ~${Math.round(targetWeight * 2.0)}g)`;
+        }
+
+        div.innerHTML = `
+          <span class="input-label">Ziel: ${info.label} (${info.unit})${extraNote}</span>
+          <input type="number" inputmode="numeric" id="goal_input_${key}" value="${currentTarget}" placeholder="${info.defaultTarget}">
+        `;
+        goalsGrid.appendChild(div);
+      });
     }
 
     function renderNutritionUI() {
       const container = document.getElementById('dynamic-nutrition-container');
       container.innerHTML = '';
-      const activeKeys = getActiveNutriKeys();
 
-      const proteinTarget = Math.round(targetWeight * 2.0);
-      document.getElementById('protein-target-text').innerText = `Proteinziel: ${proteinTarget} g (basiert auf ${targetWeight} kg Zielgewicht)`;
-
-      activeKeys.forEach(key => {
+      selectedNutriKeys.forEach(key => {
         const info = NUTRITION_FIELDS[key];
         const currentVal = todayNutri[key] || 0;
-        let targetVal = 0;
-        if (key === 'protein') targetVal = proteinTarget;
-        if (key === 'kcal') targetVal = targetKcal;
+        
+        let targetVal = nutriTargets[key] || info.defaultTarget;
+        if (key === 'protein' && (!nutriTargets.protein || nutriTargets.protein === 0)) {
+          targetVal = Math.round(targetWeight * 2.0);
+        }
 
         const div = document.createElement('div');
         div.className = 'nutri-card-item';
@@ -547,9 +630,9 @@
         if (targetVal > 0) {
           const diff = targetVal - currentVal;
           if (diff > 0) {
-            remText = `<div class="remaining-hint">Noch ${diff} ${info.unit} fehlen</div>`;
+            remText = `<div class="remaining-hint">Noch ${Math.round(diff * 10)/10} ${info.unit} fehlen</div>`;
           } else {
-            remText = `<div class="remaining-hint" style="color:var(--green)">Ziel erreicht! 🎉 ${Math.abs(diff)} ${info.unit} drüber</div>`;
+            remText = `<div class="remaining-hint" style="color:var(--green)">Ziel erreicht! 🎉 ${Math.round(Math.abs(diff)*10)/10} ${info.unit} drüber</div>`;
           }
         }
 
@@ -573,37 +656,56 @@
       renderTodayEntriesUI();
     }
 
+    function toggleTodayEntriesVisibility() {
+      isTodayEntriesOpen = !isTodayEntriesOpen;
+      renderTodayEntriesUI();
+    }
+
     function renderTodayEntriesUI() {
+      const wrapper = document.getElementById('today-entries-wrapper');
       const container = document.getElementById('today-entries-container');
       const list = document.getElementById('today-entries-list');
+      const titleSpan = document.getElementById('today-entries-toggle-title');
+      const iconSpan = document.getElementById('today-entries-toggle-icon');
+
       list.innerHTML = '';
 
       if (!todayEntries || todayEntries.length === 0) {
-        container.style.display = 'none';
+        wrapper.style.display = 'none';
         return;
       }
 
-      container.style.display = 'block';
-      todayEntries.forEach((entry, idx) => {
-        const item = document.createElement('div');
-        item.className = 'search-result-item';
+      wrapper.style.display = 'block';
+      titleSpan.innerText = `📝 Heute getrackte Einträge (${todayEntries.length})`;
 
-        let nutriSummary = [];
-        Object.keys(NUTRITION_FIELDS).forEach(k => {
-          if (entry.nutris && entry.nutris[k]) {
-            nutriSummary.push(`${entry.nutris[k]}${NUTRITION_FIELDS[k].unit} ${NUTRITION_FIELDS[k].label}`);
-          }
+      if (isTodayEntriesOpen) {
+        container.style.display = 'block';
+        iconSpan.innerText = '▲';
+
+        todayEntries.forEach((entry, idx) => {
+          const item = document.createElement('div');
+          item.className = 'search-result-item';
+
+          let nutriSummary = [];
+          Object.keys(NUTRITION_FIELDS).forEach(k => {
+            if (entry.nutris && entry.nutris[k]) {
+              nutriSummary.push(`${entry.nutris[k]}${NUTRITION_FIELDS[k].unit} ${NUTRITION_FIELDS[k].label}`);
+            }
+          });
+
+          item.innerHTML = `
+            <div style="flex:1;">
+              <div style="font-size:0.8rem; font-weight:700; color:var(--text);">${entry.name}</div>
+              <div style="font-size:0.7rem; color:var(--sub);">${nutriSummary.join(' | ')}</div>
+            </div>
+            <button style="background:none; border:none; color:var(--red); font-size:1.1rem; cursor:pointer; padding: 4px 8px;" onclick="deleteTodayEntry(${idx})">✕</button>
+          `;
+          list.appendChild(item);
         });
-
-        item.innerHTML = `
-          <div style="flex:1;">
-            <div style="font-size:0.8rem; font-weight:700; color:var(--text);">${entry.name}</div>
-            <div style="font-size:0.7rem; color:var(--sub);">${nutriSummary.join(' | ')}</div>
-          </div>
-          <button style="background:none; border:none; color:var(--red); font-size:1.1rem; cursor:pointer; padding: 4px 8px;" onclick="deleteTodayEntry(${idx})">✕</button>
-        `;
-        list.appendChild(item);
-      });
+      } else {
+        container.style.display = 'none';
+        iconSpan.innerText = '▼';
+      }
     }
 
     async function deleteTodayEntry(idx) {
@@ -612,7 +714,6 @@
 
       if (!confirm(`Möchtest du den Eintrag "${entryToDelete.name}" für heute wirklich löschen?`)) return;
 
-      // Nährwerte von den Tageswerten subtrahieren
       Object.keys(NUTRITION_FIELDS).forEach(k => {
         if (entryToDelete.nutris && entryToDelete.nutris[k]) {
           todayNutri[k] = Math.max(0, Math.round((todayNutri[k] - entryToDelete.nutris[k]) * 10) / 10);
@@ -645,7 +746,6 @@
       const addedVal = Math.round(val * 10) / 10;
       todayNutri[key] = Math.round(((todayNutri[key] || 0) + addedVal) * 10) / 10;
 
-      // Im Verlauf für Heute protokollieren
       const singleNutriObj = {};
       singleNutriObj[key] = addedVal;
       todayEntries.unshift({
@@ -767,11 +867,12 @@
       const { data: goals } = await supabaseClient.from('user_goals').select('*').eq('user_id', currentUser.id);
       if (goals && goals.length > 0) {
         targetWeight = goals[0].target_weight || 75;
-        targetKcal = goals[0].target_kcal || 2500;
+        if (goals[0].nutri_targets) {
+          nutriTargets = goals[0].nutri_targets;
+        } else {
+          nutriTargets.kcal = goals[0].target_kcal || 2800;
+        }
       }
-
-      document.getElementById('target-weight-input').value = targetWeight;
-      document.getElementById('target-kcal-input').value = targetKcal;
 
       const { data: logs } = await supabaseClient.from('daily_logs').select('*').eq('user_id', currentUser.id);
 
@@ -802,6 +903,7 @@
       document.getElementById('user-weight').value = userWeight;
       renderDaySelector();
       switchDay(currentDay);
+      renderCheckboxGrid();
       renderNutritionUI();
       renderWeightChart();
     }
@@ -1201,18 +1303,23 @@
 
     async function saveGoals() {
       const tw = parseFloat(document.getElementById('target-weight-input').value) || 75;
-      const tk = parseInt(document.getElementById('target-kcal-input').value) || 2500;
-
       targetWeight = tw;
-      targetKcal = tk;
+
+      selectedNutriKeys.forEach(key => {
+        const input = document.getElementById(`goal_input_${key}`);
+        if (input) {
+          const val = parseFloat(input.value);
+          if (!isNaN(val)) nutriTargets[key] = val;
+        }
+      });
 
       await supabaseClient.from('user_goals').upsert(
-        { user_id: currentUser.id, target_weight: targetWeight, target_kcal: targetKcal },
+        { user_id: currentUser.id, target_weight: targetWeight, target_kcal: nutriTargets.kcal || 2800, nutri_targets: nutriTargets },
         { onConflict: 'user_id' }
       );
 
       renderNutritionUI();
-      alert("Ziele erfolgreich gespeichert!");
+      alert("Alle Tagesziele wurden erfolgreich gespeichert!");
     }
 
     function renderWeightChart() {
@@ -1507,7 +1614,6 @@
             todayNutri[k] = Math.round(((todayNutri[k] || 0) + addedVal) * 10) / 10;
           });
 
-          // Im Tagesverlauf protokollieren
           todayEntries.unshift({
             name: `${name} (${amount}${unit})`,
             nutris: addedNutrisForEntry
