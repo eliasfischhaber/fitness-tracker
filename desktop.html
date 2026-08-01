@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Gym & Nutrition Pro</title>
+  
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GymTracker">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+    :root {
+      --bg: #09090B; --card: #121215; --accent: #6366F1; --accent-glow: rgba(99, 102, 241, 0.25);
+      --green: #10B981; --orange: #F59E0B; --red: #EF4444; --blue: #3B82F6; --purple: #8B5CF6;
+      --text: #F4F4F5; --sub: #71717A; --border: rgba(255, 255, 255, 0.08); --border-accent: rgba(99, 102, 241, 0.3);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; max-width: 100%; overflow-x: hidden !important; background-color: var(--bg); color: var(--text); }
+    body { padding: 12px; padding-top: max(16px, env(safe-area-inset-top)); padding-bottom: max(90px, env(safe-area-inset-bottom)); }
+
+    #auth-screen { display: flex; flex-direction: column; justify-content: center; min-height: 80vh; max-width: 380px; margin: 0 auto; }
+    .top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .app-title { font-size: 1.25rem; font-weight: 800; background: linear-gradient(135deg, #FFF 30%, var(--sub)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    
+    .nav-tabs { display: flex; gap: 4px; margin-bottom: 14px; background: rgba(255, 255, 255, 0.03); padding: 3px; border-radius: 12px; border: 1px solid var(--border); width: 100%; }
+    .tab-btn { flex: 1; padding: 12px 0; text-align: center; background: none; border: none; color: var(--sub); font-weight: 600; font-size: 0.85rem; border-radius: 99px; cursor: pointer; }
+    .tab-btn.active { background: var(--accent); color: #FFF; font-weight: 700; box-shadow: 0 4px 15px var(--accent-glow); }
+
+    .card { background: var(--card); border-radius: 16px; padding: 14px; border: 1px solid var(--border); margin-bottom: 12px; width: 100%; }
+    .card-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+
+    .control-panel { background: var(--card); border-radius: 16px; padding: 12px; border: 1px solid var(--border); margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; width: 100%; }
+    .panel-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+    
+    input[type="date"], input[type="number"], input[type="text"], input[type="password"], select { 
+      background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); color: var(--text); 
+      padding: 12px; border-radius: 10px; font-size: 16px !important; font-weight: 600; outline: none; width: 100%; -webkit-appearance: none; margin-bottom: 8px;
+    }
+    input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+
+    .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-bottom: 12px; }
+    .checkbox-label { 
+      display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.03); 
+      border: 1px solid var(--border); padding: 8px 10px; border-radius: 8px; font-size: 0.78rem; font-weight: 600; cursor: pointer; color: var(--sub); 
+    }
+    .checkbox-label:has(input:checked) { background: rgba(99, 102, 241, 0.15); border-color: var(--border-accent); color: var(--text); }
+    .checkbox-label input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; cursor: pointer; }
+
+    .goals-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; margin-bottom: 10px; }
+
+    .day-selector-wrapper { display: flex; gap: 6px; width: 100%; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+    .day-selector-wrapper::-webkit-scrollbar { display: none; }
+    
+    .day-btn { flex: 0 0 auto; min-width: 75px; padding: 10px 14px; text-align: center; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); color: var(--sub); font-weight: 600; font-size: 0.85rem; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+    .day-btn.active { background: rgba(99, 102, 241, 0.15); color: var(--accent); font-weight: 700; border-color: var(--border-accent); }
+    .day-btn-add { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: var(--green); font-weight: 800; }
+
+    .week-strip { display: flex; justify-content: space-between; gap: 3px; width: 100%; }
+    .day-pill { flex: 1; text-align: center; padding: 8px 0; background: rgba(255, 255, 255, 0.02); border-radius: 8px; border: 1px solid var(--border); font-size: 0.75rem; font-weight: 600; }
+    .day-pill.today { border-color: var(--accent); background: var(--accent-glow); color: #FFF; font-weight: 800; }
+    .day-name { color: var(--sub); font-size: 0.6rem; margin-bottom: 2px; text-transform: uppercase; }
+
+    .progress-bar-bg { width: 100%; height: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); margin: 6px 0 4px 0; }
+    .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); width: 0%; border-radius: 99px; transition: width 0.4s ease; }
+
+    .exercise-card { background: var(--card); border-radius: 14px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); width: 100%; position: relative; }
+    .exercise-title { 
+      font-size: 0.88rem; font-weight: 700; margin-bottom: 12px; 
+      display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; 
+      padding-right: 125px; 
+    }
+    .exercise-subtitle { font-size: 0.72rem; color: var(--accent); font-weight: 600; }
+    
+    .action-btn-group { position: absolute; top: 10px; right: 10px; display: flex; gap: 3px; }
+    .ex-action-btn { 
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--sub); 
+      font-size: 0.72rem; cursor: pointer; padding: 4px 5px; border-radius: 6px; line-height: 1;
+    }
+    .ex-action-btn.add-set { color: var(--green); border-color: rgba(16, 185, 129, 0.3); }
+    .ex-action-btn.remove-set { color: var(--orange); border-color: rgba(245, 158, 11, 0.3); }
+    .ex-action-btn.delete:active { color: var(--red); }
+
+    .set-container { margin-bottom: 8px; width: 100%; }
+    .set-row { display: grid; grid-template-columns: 50px 1fr 1fr; gap: 8px; align-items: center; width: 100%; }
+    .set-row input { text-align: center; font-weight: 700; margin-bottom: 0; }
+    .last-val-hint { font-size: 0.7rem; color: var(--sub); margin-top: 2px; text-align: right; grid-column: 2 / 4; }
+
+    .btn-small { padding: 10px 14px; background: var(--accent); color: #FFF; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.85rem; white-space: nowrap; margin-bottom: 8px; }
+    .btn-outline { padding: 8px 12px; background: transparent; color: var(--sub); border: 1px solid var(--border); border-radius: 6px; font-size: 0.75rem; cursor: pointer; }
+    .save-btn { width: 100%; padding: 16px; background: var(--accent); color: #FFF; border: none; border-radius: 14px; font-size: 0.95rem; font-weight: 800; cursor: pointer; margin-top: 8px; box-shadow: 0 4px 20px var(--accent-glow); }
+    .chart-container { height: 140px; width: 100%; margin-top: 6px; }
+
+    .history-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
+    .history-chip { display: flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); padding: 4px 8px; border-radius: 8px; font-size: 0.75rem; color: var(--sub); font-weight: 600; }
+    .history-chip button { background: none; border: none; color: var(--red); cursor: pointer; font-size: 0.8rem; line-height: 1; }
+
+    .search-results-list { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+    .search-result-item { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 10px; padding: 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .search-result-item:active { background: rgba(99, 102, 241, 0.15); border-color: var(--border-accent); }
+    .food-info-clickable { flex: 1; cursor: pointer; min-width: 0; }
+
+    .item-fav-btn { background: none; border: none; font-size: 1.1rem; padding: 4px 8px; cursor: pointer; flex-shrink: 0; }
+    .remaining-hint { font-size: 0.72rem; color: var(--sub); margin-bottom: 8px; font-weight: 600; text-align: right; }
+    .user-badge { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: rgba(99, 102, 241, 0.15); padding: 4px 8px; border-radius: 6px; }
+    .input-group { display: flex; flex-direction: column; gap: 2px; width: 100%; }
+    .input-label { font-size: 0.75rem; color: var(--sub); font-weight: 600; margin-bottom: 2px; }
+    .nutri-card-item { margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px dashed var(--border); }
+    .nutri-card-item:last-child { border-bottom: none; margin-bottom: 0; }
+
+    .toggle-section-btn {
+      width: 100%; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); color: var(--sub);
+      padding: 8px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 700;
+      display: flex; justify-content: space-between; align-items: center; cursor: pointer; margin-top: 6px;
+    }
+
+    #scanner-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: #000; z-index: 99999; overflow: hidden; }
+    #reader { width: 100% !important; height: 100% !important; border: none !important; }
+    #reader video { width: 100% !important; height: 100% !important; object-fit: cover !important; }
+    #close-scanner-btn { 
+      position: absolute; top: max(16px, env(safe-area-inset-top)); right: 16px; z-index: 100000; 
+      background: rgba(0,0,0,0.75); color: #FFF; border: 1px solid rgba(255,255,255,0.25); 
+      font-size: 0.9rem; font-weight: 700; padding: 10px 18px; border-radius: 99px; cursor: pointer; backdrop-filter: blur(10px);
+    }
+
+    /* ============================================
+       DESKTOP-OPTIMIERUNGEN
+       Zentrierter "One-Pager" statt randloser Vollbreite.
+       Alle IDs/Klassen bleiben identisch zur Handy-Version,
+       damit das bestehende JavaScript unverändert funktioniert.
+       ============================================ */
+
+    body {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 32px 24px 60px 24px;
+    }
+
+    #app-screen .top-header { margin-bottom: 20px; }
+    .app-title { font-size: 1.5rem; }
+
+    .nav-tabs { padding: 4px; margin-bottom: 20px; }
+    .tab-btn { padding: 13px 0; font-size: 0.9rem; }
+    .tab-btn:hover { color: var(--text); }
+
+    .card, .control-panel { padding: 20px; border-radius: 18px; margin-bottom: 16px; }
+    .card-title { font-size: 1.02rem; }
+
+    /* Mehr Platz = mehr Spalten bei Grids, die vorher aus Platzgründen eng waren */
+    .checkbox-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    .goals-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .search-results-list { gap: 8px; }
+
+    /* Klickbare Elemente reagieren sichtbar auf den Mauszeiger */
+    .btn-small:hover, .save-btn:hover, .btn-outline:hover, .day-btn:hover,
+    .ex-action-btn:hover, .toggle-section-btn:hover, .item-fav-btn:hover {
+      filter: brightness(1.12);
+    }
+    .search-result-item:hover { background: rgba(99, 102, 241, 0.1); border-color: var(--border-accent); cursor: pointer; }
+    .checkbox-label:hover { border-color: var(--border-accent); }
+
+    .exercise-card { padding: 16px; }
+    .set-row { gap: 10px; }
+
+    input[type="date"], input[type="number"], input[type="text"], input[type="password"], select {
+      padding: 11px 12px;
+    }
+
+    /* Desktop-Hinweis: Link zurück zur Handy-Version */
+    .platform-switch-link {
+      display: block; text-align: center; font-size: 0.75rem; color: var(--sub);
+      margin-top: 24px; text-decoration: none;
+    }
+    .platform-switch-link:hover { color: var(--accent); }
+  </style>
+  <script>
+    // Sanfte Weiterleitung: Auf schmalen Bildschirmen (Handy) automatisch
+    // zur mobilen Version wechseln, falls jemand direkt auf desktop.html landet.
+    if (window.innerWidth < 700 && !location.search.includes('force=desktop')) {
+      location.replace('index.html');
+    }
+  </script>
+</head>
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <div id="auth-screen">
+    <div class="card">
+      <div class="card-title" style="justify-content: center; font-size: 1.2rem; margin-bottom: 16px;">GymTracker Login</div>
+      <input type="text" id="auth-user" placeholder="Benutzername (z.B. Elias)" autocomplete="off">
+      <input type="password" id="auth-password" placeholder="Passwort">
+      <button class="save-btn" onclick="handleCustomLogin()">Anmelden</button>
+    </div>
+  </div>
+
+  <!-- HAUPT APP -->
+  <div id="app-screen" style="display: none;">
+    <div class="top-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+        <div class="app-title">GymTracker Pro</div>
+        <div id="current-user-tag" class="user-badge"></div>
+        <button onclick="syncCloudData()" title="Cloud aktualisieren" style="background:none; border:none; cursor:pointer; font-size:1.2rem; margin-left: 4px;">🔄</button>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <a href="index.html" class="platform-switch-link" style="margin:0; font-size:0.7rem;" title="Zur Handy-Version wechseln">📱 Handy-Version</a>
+        <button class="btn-outline" onclick="handleLogout()">Abmelden</button>
+      </div>
+    </div>
+
+    <div class="nav-tabs">
+      <button class="tab-btn active" id="tab-btn-workout" onclick="switchMainTab('WORKOUT')">🏋️ Workout</button>
+      <button class="tab-btn" id="tab-btn-dash" onclick="switchMainTab('DASHBOARD')">📊 Dashboard</button>
+    </div>
+
+    <!-- REITER 1: WORKOUT -->
+    <div id="view-workout">
+      <div class="control-panel">
+        <div class="panel-row">
+          <span style="font-size: 0.85rem; font-weight: 600; color: var(--sub); white-space: nowrap;">Datum:</span>
+          <input type="date" id="workout-date" onchange="renderWorkout()">
+        </div>
+        <div class="panel-row">
+          <div class="day-selector-wrapper" id="day-selector-list"></div>
+        </div>
+        <div style="display: flex; justify-content: flex-end;">
+          <button class="btn-outline" style="color: var(--red); border-color: rgba(239, 68, 68, 0.3);" onclick="deleteCurrentDay()">🗑️ Plan löschen</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>Progress</span>
+          <span style="font-size:0.78rem; color:var(--green); font-weight:800;" id="growth-val">+0.0%</span>
+        </div>
+        <select id="view-mode" onchange="handleModeChange()" style="margin-bottom:6px;">
+          <option value="PLAN">Gesamter Trainingsplan</option>
+          <option value="EXERCISE">Einzelne Übung</option>
+        </select>
+        <select id="exercise-picker" style="display: none; margin-bottom:6px;" onchange="renderChart()"></select>
+        <div class="chart-container"><canvas id="progressChart"></canvas></div>
+        
+        <div id="history-manage-container" style="display: none; margin-top: 12px;">
+          <div style="font-size: 0.75rem; color: var(--sub); font-weight: 700;">📅 Gespeicherte Einheiten löschen:</div>
+          <div class="history-list" id="history-chip-list"></div>
+        </div>
+      </div>
+
+      <div id="workout-container"></div>
+
+      <div class="card" style="border-style: dashed; border-color: var(--border-accent);">
+        <div class="card-title">➕ Übung hinzufügen</div>
+        <div class="input-group">
+          <span class="input-label">Name der Übung</span>
+          <input type="text" id="new-ex-name" placeholder="z.B. Seitheben Kabelzug">
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <div class="input-group" style="flex: 2;">
+            <span class="input-label">Fokus / Untertitel (optional)</span>
+            <input type="text" id="new-ex-sub" placeholder="z.B. Seitliche Schulter">
+          </div>
+          <div class="input-group" style="flex: 1;">
+            <span class="input-label">Sätze</span>
+            <input type="number" inputmode="numeric" id="new-ex-sets" value="3" min="1" max="10">
+          </div>
+        </div>
+        <button class="btn-small" style="width: 100%; margin-bottom: 0;" onclick="addExerciseToCurrentDay()">Übung Hinzufügen</button>
+      </div>
+
+      <button class="save-btn" onclick="saveData()">Einheit Speichern</button>
+    </div>
+
+    <!-- REITER 2: DASHBOARD -->
+    <div id="view-dashboard" style="display: none;">
+      <div class="card">
+        <div class="card-title">Wochenansicht</div>
+        <div class="week-strip" id="week-strip"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>Körpergewichtsverlauf</span>
+          <span style="font-size:0.78rem; color:var(--green); font-weight:800;" id="latest-weight-display">-- kg</span>
+        </div>
+        <div class="chart-container"><canvas id="weightChart"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Aktuelles Gewicht eintragen</div>
+        <div style="display: flex; gap: 6px;">
+          <input type="number" inputmode="decimal" step="0.1" id="user-weight" placeholder="Heutiges Gewicht (kg)">
+          <button class="btn-small" onclick="saveWeight()">Sichern</button>
+        </div>
+      </div>
+
+      <!-- NÄHRWERT-TRACKING -->
+      <div class="card">
+        <div class="card-title"><span>Nährwert-Tracking</span></div>
+
+        <button class="toggle-section-btn" onclick="toggleSettingsSection('visible')" style="margin-top:0;">
+          <span>👁️ Sichtbare Nährwerte wählen</span><span id="toggle-icon-visible">▼</span>
+        </button>
+        <div id="settings-section-visible" style="display:none; margin-top:8px; margin-bottom: 12px;">
+          <div class="checkbox-grid" id="nutri-checkbox-grid"></div>
+        </div>
+
+        <button class="toggle-section-btn" onclick="toggleSettingsSection('goals')">
+          <span>🎯 Tagesziele konfigurieren</span><span id="toggle-icon-goals">▼</span>
+        </button>
+        <div id="settings-section-goals" style="display:none; border-top: 1px solid var(--border); padding-top: 10px; margin-top:8px; margin-bottom: 12px;">
+          <div class="goals-grid" id="nutri-goals-grid"></div>
+          <button class="btn-small" style="width: 100%; margin-bottom: 6px;" onclick="saveGoals()">Ziele Speichern</button>
+        </div>
+
+        <div id="dynamic-nutrition-container" style="border-top: 1px solid var(--border); padding-top: 12px;"></div>
+
+        <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px;">
+          <button class="btn-small" style="width: 100%; background: linear-gradient(135deg, var(--accent), #4F46E5); padding: 12px; margin-bottom: 10px;" onclick="startBarcodeScanner()">📷 Barcode / QR-Code scannen</button>
+        </div>
+
+        <div style="border-top: 1px solid var(--border); padding-top: 12px;">
+          <div class="card-title" style="font-size:0.85rem; margin-bottom:6px;">🔎 Lebensmittel nach Name suchen</div>
+          <div style="display: flex; gap: 6px;">
+            <input type="text" id="food-search-query" placeholder="z.B. Pfanner Eistee Zitrone" onkeyup="if(event.key==='Enter') searchFoodByName()">
+            <button class="btn-small" onclick="searchFoodByName()">Suchen</button>
+          </div>
+          <div class="search-results-list" id="food-search-results"></div>
+        </div>
+
+        <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px;">
+          <div class="card-title" style="font-size:0.85rem; margin-bottom:6px;">✏️ Lebensmittel manuell eingeben</div>
+
+          <div class="input-group" style="margin-bottom:10px;">
+            <span class="input-label">Produktname</span>
+            <input type="text" id="manual-food-name" placeholder="z.B. Haferflocken">
+          </div>
+
+          <div class="input-label" style="margin-bottom:6px;">Nährwerte pro 100g / 100ml:</div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px 6px;">
+            <div class="input-group">
+              <span class="input-label">Protein (g)</span>
+              <input type="number" inputmode="decimal" id="manual-food-protein" placeholder="0">
+            </div>
+            <div class="input-group">
+              <span class="input-label">Kalorien (kcal)</span>
+              <input type="number" inputmode="decimal" id="manual-food-kcal" placeholder="0">
+            </div>
+            <div class="input-group">
+              <span class="input-label">Kohlenhydrate (g)</span>
+              <input type="number" inputmode="decimal" id="manual-food-carbs" placeholder="0">
+            </div>
+            <div class="input-group">
+              <span class="input-label">Fett (g)</span>
+              <input type="number" inputmode="decimal" id="manual-food-fat" placeholder="0">
+            </div>
+          </div>
+          <button class="btn-small" style="width:100%; margin-top:2px;" onclick="addManualFood()">+ Zum Verlauf hinzufügen</button>
+        </div>
+
+        <div id="manual-food-section" style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; display: none;">
+          <div class="card-title" style="font-size:0.85rem; margin-bottom:6px;">📝 Manuell eingegebene Lebensmittel</div>
+          <div class="search-results-list" id="manual-food-list"></div>
+        </div>
+
+        <div id="favorites-section" style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; display: none;">
+          <div class="card-title" style="font-size:0.85rem; margin-bottom:6px;">⭐️ Deine Favoriten</div>
+          <div class="search-results-list" id="favorites-list"></div>
+        </div>
+
+        <div id="recent-food-section" style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; display: none;">
+          <div class="card-title" style="font-size:0.85rem; margin-bottom:6px;">🕒 Zuletzt getrackt</div>
+          <div class="search-results-list" id="recent-food-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="scanner-overlay">
+    <button id="close-scanner-btn" onclick="stopBarcodeScanner()">✕ Schließen</button>
+    <div id="reader"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
