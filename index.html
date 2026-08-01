@@ -98,7 +98,7 @@
     .day-pill.today { border-color: var(--accent); background: var(--accent-glow); color: #FFF; font-weight: 800; }
     .day-name { color: var(--sub); font-size: 0.6rem; margin-bottom: 2px; text-transform: uppercase; }
 
-    .progress-bar-bg { width: 100%; height: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); margin: 8px 0 12px 0; }
+    .progress-bar-bg { width: 100%; height: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); margin: 6px 0 4px 0; }
     .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); width: 0%; border-radius: 99px; transition: width 0.4s ease; }
     .progress-bar-fill-kcal { height: 100%; background: linear-gradient(90deg, var(--accent), var(--orange)); width: 0%; border-radius: 99px; transition: width 0.4s ease; }
 
@@ -141,10 +141,13 @@
     .history-chip { display: flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); padding: 4px 8px; border-radius: 8px; font-size: 0.75rem; color: var(--sub); font-weight: 600; }
     .history-chip button { background: none; border: none; color: var(--red); cursor: pointer; font-size: 0.8rem; line-height: 1; }
 
-    /* PRODUKT SEARCH RESULT STYLING */
-    .search-results-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+    .search-results-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
     .search-result-item { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 10px; padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
     .search-result-item:active { background: rgba(99, 102, 241, 0.15); border-color: var(--border-accent); }
+
+    .item-fav-btn { background: none; border: none; font-size: 1.1rem; padding: 4px 8px; cursor: pointer; }
+
+    .remaining-hint { font-size: 0.72rem; color: var(--sub); margin-bottom: 12px; font-weight: 600; text-align: right; }
 
     .user-badge { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: rgba(99, 102, 241, 0.15); padding: 4px 8px; border-radius: 6px; }
     .input-group { display: flex; flex-direction: column; gap: 2px; width: 100%; }
@@ -318,6 +321,7 @@
         </div>
       </div>
 
+      <!-- PROTEIN & KCAL FORMS INKL. RESTANZEIGE -->
       <div class="card">
         <div class="card-title">
           <span>Protein Intake (Heute)</span>
@@ -326,6 +330,7 @@
         <div class="progress-bar-bg">
           <div class="progress-bar-fill" id="protein-progress"></div>
         </div>
+        <div class="remaining-hint" id="protein-remaining-text">Noch -- g fehlen</div>
         <div style="display: flex; gap: 6px; margin-bottom: 16px;">
           <input type="number" inputmode="numeric" id="protein-input" placeholder="Gramm (z.B. 40)">
           <button class="btn-small" onclick="addProtein()">+ Hinzufügen</button>
@@ -338,6 +343,7 @@
         <div class="progress-bar-bg">
           <div class="progress-bar-fill-kcal" id="kcal-progress"></div>
         </div>
+        <div class="remaining-hint" id="kcal-remaining-text">Noch -- kcal fehlen</div>
         <div style="display: flex; gap: 6px;">
           <input type="number" inputmode="numeric" id="kcal-input" placeholder="Kcal (z.B. 650)">
           <button class="btn-small" style="background: var(--orange);" onclick="addKcal()">+ Hinzufügen</button>
@@ -348,7 +354,7 @@
           <button class="btn-small" style="width: 100%; background: linear-gradient(135deg, var(--accent), #4F46E5); padding: 12px; margin-bottom: 10px;" onclick="startBarcodeScanner()">📷 Barcode / QR-Code scannen</button>
         </div>
 
-        <!-- NEU: TEXTSUCHE FÜR LEBENSMITTEL -->
+        <!-- LEBENSMITTEL TEXTSUCHE -->
         <div style="border-top: 1px solid var(--border); padding-top: 12px;">
           <div class="card-title" style="font-size:0.85rem; margin-bottom:6px;">🔎 Lebensmittel nach Name suchen</div>
           <div style="display: flex; gap: 6px;">
@@ -356,6 +362,18 @@
             <button class="btn-small" onclick="searchFoodByName()">Suchen</button>
           </div>
           <div class="search-results-list" id="food-search-results"></div>
+        </div>
+
+        <!-- FAVORITEN LISTE -->
+        <div id="favorites-section" style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; display: none;">
+          <div class="card-title" style="font-size:0.85rem; margin-bottom:6px;">⭐️ Deine Favoriten</div>
+          <div class="search-results-list" id="favorites-list"></div>
+        </div>
+
+        <!-- VERLAUF DER LETZTEN LEBENSMITTEL -->
+        <div id="recent-food-section" style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; display: none;">
+          <div class="card-title" style="font-size:0.85rem; margin-bottom:6px;">🕒 Zuletzt getrackt</div>
+          <div class="search-results-list" id="recent-food-list"></div>
         </div>
       </div>
     </div>
@@ -426,6 +444,9 @@
     let myChart = null;
     let myWeightChart = null;
 
+    let favoriteFoods = [];
+    let recentFoods = [];
+
     let html5QrcodeScanner = null;
 
     const todayStr = new Date().toISOString().split('T')[0];
@@ -448,12 +469,29 @@
         document.getElementById('current-user-tag').innerText = username;
         document.getElementById('workout-date').value = todayStr;
         
+        loadLocalFoodLists();
         await loadAllData();
         renderWeekStrip();
       } else {
         document.getElementById('auth-screen').style.display = 'flex';
         document.getElementById('app-screen').style.display = 'none';
       }
+    }
+
+    function loadLocalFoodLists() {
+      if (!currentUser) return;
+      const favs = localStorage.getItem(`favs_${currentUser.id}`);
+      const recents = localStorage.getItem(`recents_${currentUser.id}`);
+      if (favs) favoriteFoods = JSON.parse(favs);
+      if (recents) recentFoods = JSON.parse(recents);
+      renderFavoritesUI();
+      renderRecentFoodsUI();
+    }
+
+    function saveLocalFoodLists() {
+      if (!currentUser) return;
+      localStorage.setItem(`favs_${currentUser.id}`, JSON.stringify(favoriteFoods));
+      localStorage.setItem(`recents_${currentUser.id}`, JSON.stringify(recentFoods));
     }
 
     async function handleCustomLogin() {
@@ -1068,6 +1106,7 @@
       updateNutritionUI();
     }
 
+    // UPDATE NUTRITION UI INKLUSIVE ANZEIGE FEHLENDER AMOUNT
     function updateNutritionUI() {
       const proteinTarget = Math.round(targetWeight * 2.0);
       document.getElementById('protein-target-text').innerText = `Proteinziel: ${proteinTarget} g (basiert auf ${targetWeight} kg Zielgewicht)`;
@@ -1076,9 +1115,27 @@
       const pPct = Math.min(100, Math.round((todayProtein / proteinTarget) * 100));
       document.getElementById('protein-progress').style.width = pPct + '%';
 
+      const pDiff = proteinTarget - todayProtein;
+      if (pDiff > 0) {
+        document.getElementById('protein-remaining-text').innerText = `Noch ${pDiff} g fehlen`;
+        document.getElementById('protein-remaining-text').style.color = "var(--sub)";
+      } else {
+        document.getElementById('protein-remaining-text').innerText = `Ziel erreicht! 🎉 ${Math.abs(pDiff)} g drüber`;
+        document.getElementById('protein-remaining-text').style.color = "var(--green)";
+      }
+
       document.getElementById('kcal-count-text').innerText = `${todayKcal} / ${targetKcal} kcal`;
       const kPct = Math.min(100, Math.round((todayKcal / targetKcal) * 100));
       document.getElementById('kcal-progress').style.width = kPct + '%';
+
+      const kDiff = targetKcal - todayKcal;
+      if (kDiff > 0) {
+        document.getElementById('kcal-remaining-text').innerText = `Noch ${kDiff} kcal fehlen`;
+        document.getElementById('kcal-remaining-text').style.color = "var(--sub)";
+      } else {
+        document.getElementById('kcal-remaining-text').innerText = `Ziel erreicht! 🎉 +${Math.abs(kDiff)} kcal drüber`;
+        document.getElementById('kcal-remaining-text').style.color = "var(--orange)";
+      }
     }
 
     // SCANNER LOGIK
@@ -1141,23 +1198,8 @@
 
         if (data.products && data.products.length > 0) {
           data.products.forEach(p => {
-            const name = p.product_name || "Unbekanntes Produkt";
-            const brand = p.brands || "";
-            const pPer100 = p.nutriments ? (p.nutriments['proteins_100g'] || 0) : 0;
-            const kPer100 = p.nutriments ? (p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'] || 0) : 0;
-
-            const item = document.createElement('div');
-            chipName = brand ? `${brand} - ${name}` : name;
-            item.className = 'search-result-item';
-            item.innerHTML = `
-              <div>
-                <div style="font-size:0.8rem; font-weight:700; color:var(--text);">${chipName}</div>
-                <div style="font-size:0.7rem; color:var(--sub);">Pro 100g/ml: ${pPer100}g P | ${kPer100} kcal</div>
-              </div>
-              <button class="btn-small" style="margin-bottom:0; padding:6px 10px; font-size:0.75rem;">Wählen</button>
-            `;
-            item.onclick = () => processAndAddProduct(p);
-            resultsContainer.appendChild(item);
+            const card = createFoodResultCard(p, false);
+            resultsContainer.appendChild(card);
           });
         } else {
           resultsContainer.innerHTML = `<div style="font-size:0.75rem; color:var(--sub); text-align:center; padding: 10px;">Keine Produkte gefunden.</div>`;
@@ -1167,13 +1209,101 @@
       }
     }
 
-    async function processAndAddProduct(p) {
+    function createFoodResultCard(p, isFavList = false) {
       const name = (p.brands ? p.brands + " - " : "") + (p.product_name || "Unbekanntes Produkt");
       const pPer100 = p.nutriments ? (p.nutriments['proteins_100g'] || 0) : 0;
       const kPer100 = p.nutriments ? (p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'] || 0) : 0;
 
-      const categories = (p.categories_tags || []).join(' ').toLowerCase();
-      const quantity = (p.quantity || "").toLowerCase();
+      const isFav = favoriteFoods.some(f => f.code === p.code || f.name === name);
+
+      const item = document.createElement('div');
+      item.className = 'search-result-item';
+      item.innerHTML = `
+        <div style="flex:1; margin-right: 8px;" onclick="processAndAddProductDirect('${name}', ${pPer100}, ${kPer100}, '${p.categories_tags ? p.categories_tags.join(' ') : ''}', '${p.quantity || ''}', '${p.code || ''}')">
+          <div style="font-size:0.8rem; font-weight:700; color:var(--text);">${name}</div>
+          <div style="font-size:0.7rem; color:var(--sub);">Pro 100g/ml: ${pPer100}g P | ${kPer100} kcal</div>
+        </div>
+        <button class="item-fav-btn" onclick="toggleFavorite(event, '${name}', ${pPer100}, ${kPer100}, '${p.categories_tags ? p.categories_tags.join(' ') : ''}', '${p.quantity || ''}', '${p.code || ''}')">${isFav ? '⭐️' : '☆'}</button>
+      `;
+      return item;
+    }
+
+    function toggleFavorite(event, name, pPer100, kPer100, categories, quantity, code) {
+      event.stopPropagation();
+      const existingIdx = favoriteFoods.findIndex(f => (code && f.code === code) || f.name === name);
+
+      if (existingIdx >= 0) {
+        favoriteFoods.splice(existingIdx, 1);
+      } else {
+        favoriteFoods.push({ name, pPer100, kPer100, categories, quantity, code });
+      }
+
+      saveLocalFoodLists();
+      renderFavoritesUI();
+      
+      const searchContainer = document.getElementById('food-search-results');
+      if (searchContainer.children.length > 0) {
+        searchFoodByName();
+      }
+    }
+
+    function renderFavoritesUI() {
+      const section = document.getElementById('favorites-section');
+      const list = document.getElementById('favorites-list');
+      list.innerHTML = '';
+
+      if (!favoriteFoods || favoriteFoods.length === 0) {
+        section.style.display = 'none';
+        return;
+      }
+
+      section.style.display = 'block';
+      favoriteFoods.forEach(p => {
+        const card = createFoodResultCard(p, true);
+        list.appendChild(card);
+      });
+    }
+
+    function addToRecentFoods(foodObj) {
+      recentFoods = recentFoods.filter(r => r.name !== foodObj.name);
+      recentFoods.unshift(foodObj);
+      if (recentFoods.length > 5) recentFoods.pop();
+
+      saveLocalFoodLists();
+      renderRecentFoodsUI();
+    }
+
+    function renderRecentFoodsUI() {
+      const section = document.getElementById('recent-food-section');
+      const list = document.getElementById('recent-food-list');
+      list.innerHTML = '';
+
+      if (!recentFoods || recentFoods.length === 0) {
+        section.style.display = 'none';
+        return;
+      }
+
+      section.style.display = 'block';
+      recentFoods.forEach(p => {
+        const card = createFoodResultCard(p, false);
+        list.appendChild(card);
+      });
+    }
+
+    function processAndAddProduct(p) {
+      const name = (p.brands ? p.brands + " - " : "") + (p.product_name || "Unbekanntes Produkt");
+      const pPer100 = p.nutriments ? (p.nutriments['proteins_100g'] || 0) : 0;
+      const kPer100 = p.nutriments ? (p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'] || 0) : 0;
+      const categories = (p.categories_tags || []).join(' ');
+      const quantity = p.quantity || "";
+      const code = p.code || "";
+
+      processAndAddProductDirect(name, pPer100, kPer100, categories, quantity, code);
+    }
+
+    async function processAndAddProductDirect(name, pPer100, kPer100, categoriesStr, quantityStr, code) {
+      const categories = (categoriesStr || "").toLowerCase();
+      const quantity = (quantityStr || "").toLowerCase();
       
       const isDrink = categories.includes('beverage') || categories.includes('getränk') || quantity.includes('ml') || quantity.includes('liter') || quantity.match(/\d\s*l\b/);
 
@@ -1196,6 +1326,8 @@
             { date: todayStr, weight: userWeight, protein: todayProtein, kcal: todayKcal, user_id: currentUser.id },
             { onConflict: 'date,user_id' }
           );
+
+          addToRecentFoods({ name, pPer100, kPer100, categories: categoriesStr, quantity: quantityStr, code });
 
           updateNutritionUI();
           document.getElementById('food-search-results').innerHTML = '';
