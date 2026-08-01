@@ -145,9 +145,10 @@
   <!-- HAUPT APP -->
   <div id="app-screen" style="display: none;">
     <div class="top-header">
-      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
         <div class="app-title">GymTracker Pro</div>
         <div id="current-user-tag" class="user-badge"></div>
+        <button onclick="syncCloudData()" title="Cloud aktualisieren" style="background:none; border:none; cursor:pointer; font-size:1.2rem; margin-left: 4px;">🔄</button>
       </div>
       <button class="btn-outline" onclick="handleLogout()">Abmelden</button>
     </div>
@@ -353,7 +354,6 @@
         
         loadSelectedNutriKeys();
         await loadAllData();
-        renderWeekStrip();
       } else {
         document.getElementById('auth-screen').style.display = 'flex';
         document.getElementById('app-screen').style.display = 'none';
@@ -601,6 +601,7 @@
       renderFavoritesUI();   // <-- Direkt nach dem Laden gerendert!
       renderRecentUI();      // <-- Direkt nach dem Laden gerendert!
       renderWeightChart();
+      renderWeekStrip();
     }
 
     function switchMainTab(tab) {
@@ -805,15 +806,41 @@
 
     function renderWeekStrip() {
       const strip = document.getElementById('week-strip');
+      if (!strip) return;
       strip.innerHTML = '';
+      
       const now = new Date();
-      const monday = new Date(now); monday.setDate(now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1));
-      ['Mo','Di','Mi','Do','Fr','Sa','So'].forEach((d, i) => {
-        const dt = new Date(monday); dt.setDate(monday.getDate() + i);
-        const dtStr = dt.toISOString().split('T')[0];
-        strip.innerHTML += `<div class="day-pill ${dtStr === todayStr ? 'today' : ''}"><div class="day-name">${d}</div><div>${dt.getDate()}</div></div>`;
+      // Montag der aktuellen Woche finden
+      const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
+      const monday = new Date(now); 
+      monday.setDate(now.getDate() - dayOfWeek);
+      
+      const days = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+      days.forEach((d, i) => {
+        const dt = new Date(monday); 
+        dt.setDate(monday.getDate() + i);
+        
+        // Lokales Datum sicher zusammenbauen (YYYY-MM-DD)
+        const year = dt.getFullYear();
+        const month = String(dt.getMonth() + 1).padStart(2, '0');
+        const day = String(dt.getDate()).padStart(2, '0');
+        const dtStr = `${year}-${month}-${day}`;
+        
+        const isToday = dtStr === todayStr;
+        
+        // Prüfen, ob an diesem Tag trainiert wurde (für den Indikator)
+        const hasWorkout = dbHistory.some(h => h.date === dtStr);
+        const dotHTML = hasWorkout ? '<div style="width:6px;height:6px;background:var(--green);border-radius:50%;margin:4px auto 0;"></div>' : '';
+
+        strip.innerHTML += `
+          <div class="day-pill ${isToday ? 'today' : ''}">
+            <div class="day-name">${d}</div>
+            <div>${dt.getDate()}</div>
+            ${dotHTML}
+          </div>
+        `;
       });
-    }
+}
 
     async function saveWeight() {
       const val = parseFloat(document.getElementById('user-weight').value);
@@ -958,13 +985,25 @@
       const q = document.getElementById('food-search-query').value.trim();
       const container = document.getElementById('food-search-results');
       if (!q) return;
+      
       container.innerHTML = `<div style="font-size:0.75rem; color:var(--sub); text-align:center;">Suche...</div>`;
+      
       try {
-        const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=5`);
+        // FIX 1: "de." statt "world." für bessere DACH-Ergebnisse und page_size auf 15 erhöht
+        const res = await fetch(`https://de.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=15`);
         const data = await res.json();
         container.innerHTML = '';
+        
         if (data.products && data.products.length > 0) {
-          data.products.forEach(p => container.appendChild(createFoodCardFromApi(p)));
+          // FIX 2: Sortiere kaputte Einträge ohne Produktnamen aus
+          const validProducts = data.products.filter(p => p.product_name && p.product_name.trim() !== "");
+          
+          if (validProducts.length > 0) {
+            // Zeige die besten 8 Ergebnisse an
+            validProducts.slice(0, 8).forEach(p => container.appendChild(createFoodCardFromApi(p)));
+          } else {
+            container.innerHTML = `<div style="font-size:0.75rem; color:var(--sub); text-align:center; padding: 6px;">Keine gültigen Produkte gefunden.</div>`;
+          }
         } else {
           container.innerHTML = `<div style="font-size:0.75rem; color:var(--sub); text-align:center; padding: 6px;">Keine Produkte gefunden.</div>`;
         }
@@ -973,6 +1012,18 @@
       }
     }
 
+    async function syncCloudData() {
+      document.body.style.opacity = '0.5';
+      await loadAllData();
+      document.body.style.opacity = '1';
+    }
+
+    // Automatisch synchronisieren, wenn die App in den Vordergrund rückt
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && currentUser) {
+        loadAllData();
+      }
+    });
     window.onload = init;
   </script>
 </body>
