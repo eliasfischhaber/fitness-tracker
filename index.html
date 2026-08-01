@@ -331,7 +331,6 @@
           <span>Nährwert-Tracking</span>
         </div>
         
-        <!-- DROPDOWN WELCHE DATEN GETRACKT WERDEN SOLLEN -->
         <div class="input-group" style="margin-bottom: 14px;">
           <span class="input-label">Sichtbare Nährwerte wählen</span>
           <select id="nutrition-mode-select" onchange="changeNutritionMode()" style="margin-bottom: 0;">
@@ -346,8 +345,14 @@
 
         <div id="dynamic-nutrition-container"></div>
 
+        <!-- HISTORIEN-LISTE FÜR NÄHRWERTE ZUM LÖSCHEN BESTIMMTER TAGE -->
+        <div id="nutri-history-container" style="display: none; margin-top: 14px; border-top: 1px solid var(--border); padding-top: 10px;">
+          <div style="font-size: 0.75rem; color: var(--sub); font-weight: 700;">📅 Gespeicherte Nährwert-Einheiten:</div>
+          <div class="history-list" id="nutri-history-chip-list"></div>
+        </div>
+
         <!-- SCANNER BUTTON -->
-        <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 8px;">
+        <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px;">
           <button class="btn-small" style="width: 100%; background: linear-gradient(135deg, var(--accent), #4F46E5); padding: 12px; margin-bottom: 10px;" onclick="startBarcodeScanner()">📷 Barcode / QR-Code scannen</button>
         </div>
 
@@ -443,19 +448,13 @@
     let currentDay = 'A';
     let dbHistory = [];
     let weightHistory = [];
+    let nutriHistoryLogs = [];
     let userWeight = 75;
     let targetWeight = 75;
     let targetKcal = 2500;
 
     let todayNutri = {
-      protein: 0,
-      kcal: 0,
-      fat: 0,
-      satFat: 0,
-      carbs: 0,
-      sugar: 0,
-      fiber: 0,
-      salt: 0
+      protein: 0, kcal: 0, fat: 0, satFat: 0, carbs: 0, sugar: 0, fiber: 0, salt: 0
     };
 
     let currentUser = null;
@@ -519,7 +518,7 @@
       if (mode === 'KCAL') return ['kcal'];
       if (mode === 'CARBS') return ['carbs', 'sugar'];
       if (mode === 'FAT') return ['fat', 'satFat'];
-      return ['protein', 'kcal']; // DEFAULT
+      return ['protein', 'kcal'];
     }
 
     function renderNutritionUI() {
@@ -572,6 +571,44 @@
         `;
         container.appendChild(div);
       });
+
+      renderNutriHistoryChips();
+    }
+
+    function renderNutriHistoryChips() {
+      const container = document.getElementById('nutri-history-container');
+      const chipList = document.getElementById('nutri-history-chip-list');
+      chipList.innerHTML = '';
+
+      const loggedDates = nutriHistoryLogs.map(l => l.date).sort((a,b) => new Date(a) - new Date(b));
+
+      if (!loggedDates || loggedDates.length === 0) {
+        container.style.display = 'none';
+        return;
+      }
+
+      container.style.display = 'block';
+      loggedDates.forEach(d => {
+        const chip = document.createElement('div');
+        chip.className = 'history-chip';
+        chip.innerHTML = `
+          <span>${formatDateGerman(d)}</span>
+          <button onclick="deleteNutriDate('${d}')" title="Nährwerte für diesen Tag löschen">✕</button>
+        `;
+        chipList.appendChild(chip);
+      });
+    }
+
+    async function deleteNutriDate(dateStr) {
+      if (!confirm(`Möchtest du die Nährwert-Einträge vom ${formatDateGerman(dateStr)} wirklich aus der Datenbank löschen?`)) return;
+
+      await supabaseClient
+        .from('daily_logs')
+        .delete()
+        .eq('user_id', currentUser.id)
+        .eq('date', dateStr);
+
+      await loadAllData();
     }
 
     async function addSingleNutrition(key) {
@@ -582,7 +619,7 @@
       todayNutri[key] = Math.round(((todayNutri[key] || 0) + val) * 10) / 10;
       await saveTodayNutriToCloud();
       input.value = '';
-      renderNutritionUI();
+      await loadAllData();
     }
 
     async function resetSingleNutrition(key) {
@@ -591,7 +628,7 @@
 
       todayNutri[key] = 0;
       await saveTodayNutriToCloud();
-      renderNutritionUI();
+      await loadAllData();
     }
 
     async function saveTodayNutriToCloud() {
@@ -709,6 +746,8 @@
       document.getElementById('target-kcal-input').value = targetKcal;
 
       const { data: logs } = await supabaseClient.from('daily_logs').select('*').eq('user_id', currentUser.id);
+      nutriHistoryLogs = logs || [];
+
       if (logs && logs.length > 0) {
         weightHistory = logs.filter(l => l.weight && l.weight > 0).sort((a, b) => new Date(a.date) - new Date(b.date));
         
@@ -727,6 +766,8 @@
           todayNutri.sugar = todayLog.sugar || 0;
           todayNutri.fiber = todayLog.fiber || 0;
           todayNutri.salt = todayLog.salt || 0;
+        } else {
+          todayNutri = { protein: 0, kcal: 0, fat: 0, satFat: 0, carbs: 0, sugar: 0, fiber: 0, salt: 0 };
         }
       }
 
@@ -1272,7 +1313,7 @@
 
         if (data.products && data.products.length > 0) {
           data.products.forEach(p => {
-            const card = createFoodResultCard(p);
+            const card = createFoodResultCardFromApi(p);
             resultsContainer.appendChild(card);
           });
         } else {
@@ -1297,39 +1338,60 @@
       };
     }
 
-    function createFoodResultCard(p) {
+    function createFoodResultCardFromApi(p) {
       const name = (p.brands ? p.brands + " - " : "") + (p.product_name || "Unbekanntes Produkt");
       const nutris = extractProductNutris(p);
+      const foodObj = {
+        name: name,
+        nutris: nutris,
+        categories: (p.categories_tags || []).join(' '),
+        quantity: p.quantity || "",
+        code: p.code || ""
+      };
+      return createFoodResultCard(foodObj);
+    }
 
-      const isFav = favoriteFoods.some(f => f.code === p.code || f.name === name);
+    function createFoodResultCard(foodObj) {
+      const name = foodObj.name || "Unbekanntes Produkt";
+      const nutris = foodObj.nutris || { protein: 0, kcal: 0, carbs: 0, fat: 0 };
+      const isFav = favoriteFoods.some(f => (foodObj.code && f.code === foodObj.code) || f.name === name);
 
       const item = document.createElement('div');
       item.className = 'search-result-item';
 
-      const nutrisJson = JSON.stringify(nutris).replace(/'/g, "&apos;");
-
       item.innerHTML = `
-        <div style="flex:1; margin-right: 8px;" onclick='processAndAddProductDirect("${name}", ${nutrisJson}, "${p.categories_tags ? p.categories_tags.join(' ') : ''}", "${p.quantity || ''}", "${p.code || ''}")'>
+        <div style="flex:1; margin-right: 8px;">
           <div style="font-size:0.8rem; font-weight:700; color:var(--text);">${name}</div>
           <div style="font-size:0.7rem; color:var(--sub);">Pro 100g/ml: ${nutris.protein}g P | ${nutris.kcal} kcal | ${nutris.carbs}g KH | ${nutris.fat}g Fett</div>
         </div>
-        <button class="item-fav-btn" onclick='toggleFavorite(event, "${name}", ${nutrisJson}, "${p.categories_tags ? p.categories_tags.join(' ') : ''}", "${p.quantity || ''}", "${p.code || ''}")'>${isFav ? '⭐️' : '☆'}</button>
+        <button class="item-fav-btn">${isFav ? '⭐️' : '☆'}</button>
       `;
+
+      item.querySelector('div').onclick = () => processAndAddProductDirect(foodObj);
+      item.querySelector('.item-fav-btn').onclick = (e) => {
+        e.stopPropagation();
+        toggleFavorite(foodObj);
+      };
+
       return item;
     }
 
-    function toggleFavorite(event, name, nutris, categories, quantity, code) {
-      event.stopPropagation();
-      const existingIdx = favoriteFoods.findIndex(f => (code && f.code === code) || f.name === name);
+    function toggleFavorite(foodObj) {
+      const existingIdx = favoriteFoods.findIndex(f => (foodObj.code && f.code === foodObj.code) || f.name === foodObj.name);
 
       if (existingIdx >= 0) {
         favoriteFoods.splice(existingIdx, 1);
       } else {
-        favoriteFoods.push({ name, nutris, categories, quantity, code });
+        favoriteFoods.push(foodObj);
       }
 
       saveLocalFoodLists();
       renderFavoritesUI();
+      
+      const searchContainer = document.getElementById('food-search-results');
+      if (searchContainer.children.length > 0) {
+        searchFoodByName();
+      }
     }
 
     function renderFavoritesUI() {
@@ -1343,8 +1405,8 @@
       }
 
       section.style.display = 'block';
-      favoriteFoods.forEach(p => {
-        const card = createFoodResultCard(p);
+      favoriteFoods.forEach(foodObj => {
+        const card = createFoodResultCard(foodObj);
         list.appendChild(card);
       });
     }
@@ -1369,8 +1431,8 @@
       }
 
       section.style.display = 'block';
-      recentFoods.forEach(p => {
-        const card = createFoodResultCard(p);
+      recentFoods.forEach(foodObj => {
+        const card = createFoodResultCard(foodObj);
         list.appendChild(card);
       });
     }
@@ -1378,16 +1440,22 @@
     function processAndAddProduct(p) {
       const name = (p.brands ? p.brands + " - " : "") + (p.product_name || "Unbekanntes Produkt");
       const nutris = extractProductNutris(p);
-      const categories = (p.categories_tags || []).join(' ');
-      const quantity = p.quantity || "";
-      const code = p.code || "";
+      const foodObj = {
+        name: name,
+        nutris: nutris,
+        categories: (p.categories_tags || []).join(' '),
+        quantity: p.quantity || "",
+        code: p.code || ""
+      };
 
-      processAndAddProductDirect(name, nutris, categories, quantity, code);
+      processAndAddProductDirect(foodObj);
     }
 
-    async function processAndAddProductDirect(name, nutris, categoriesStr, quantityStr, code) {
-      const categories = (categoriesStr || "").toLowerCase();
-      const quantity = (quantityStr || "").toLowerCase();
+    async function processAndAddProductDirect(foodObj) {
+      const name = foodObj.name;
+      const nutris = foodObj.nutris || {};
+      const categories = (foodObj.categories || "").toLowerCase();
+      const quantity = (foodObj.quantity || "").toLowerCase();
       
       const isDrink = categories.includes('beverage') || categories.includes('getränk') || quantity.includes('ml') || quantity.includes('liter') || quantity.match(/\d\s*l\b/);
 
@@ -1395,7 +1463,7 @@
       const actionText = isDrink ? "getrunken" : "gegessen";
       const unitWord = isDrink ? "Milliliter" : "Gramm";
 
-      const amountStr = prompt(`Produkt: ${name}\n\nNährwerte (pro 100${unit}):\n- Protein: ${nutris.protein}g\n- Kalorien: ${nutris.kcal} kcal\n- KH: ${nutris.carbs}g | Fett: ${nutris.fat}g\n\nWie viel ${unitWord} hast du ${actionText}?`, "100");
+      const amountStr = prompt(`Produkt: ${name}\n\nNährwerte (pro 100${unit}):\n- Protein: ${nutris.protein || 0}g\n- Kalorien: ${nutris.kcal || 0} kcal\n- KH: ${nutris.carbs || 0}g | Fett: ${nutris.fat || 0}g\n\nWie viel ${unitWord} hast du ${actionText}?`, "100");
       
       if (amountStr) {
         const amount = parseFloat(amountStr);
@@ -1407,9 +1475,9 @@
           });
 
           await saveTodayNutriToCloud();
-          addToRecentFoods({ name, nutris, categories: categoriesStr, quantity: quantityStr, code });
+          addToRecentFoods(foodObj);
 
-          renderNutritionUI();
+          await loadAllData();
           document.getElementById('food-search-results').innerHTML = '';
           document.getElementById('food-search-query').value = '';
           alert(`Hinzugefügt für ${name} (${amount}${unit})!\nDeine Tageswerte wurden aktualisiert.`);
