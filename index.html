@@ -552,10 +552,14 @@
 
     async function saveCloudFoodLists() {
       if (!currentUser) return;
-      await supabaseClient.from('user_goals').upsert({
+      const { error } = await supabaseClient.from('user_goals').upsert({
         user_id: currentUser.id, target_weight: targetWeight, target_kcal: nutriTargets.kcal || 2800,
         nutri_targets: nutriTargets, favorite_foods: favoriteFoods, recent_foods: recentFoods
       }, { onConflict: 'user_id' });
+      if (error) {
+        console.error("Fehler beim Speichern der Favoriten/Recent-Liste:", error.message, error);
+        alert("Favorit konnte nicht gespeichert werden: " + error.message);
+      }
     }
 
     async function loadAllData() {
@@ -574,9 +578,12 @@
       const { data: workouts } = await supabaseClient.from('workouts').select('*').eq('user_id', currentUser.id);
       dbHistory = workouts || [];
 
-      const { data: goals, error: goalsError } = await supabaseClient.from('user_goals').select('*').eq('user_id', currentUser.id);
+      const { data: goals, error: goalsError } = await supabaseClient.from('user_goals').select('*').eq('user_id', currentUser.id).order('id', { ascending: false });
       if (goalsError) {
         console.error("Fehler beim Laden der Goals:", goalsError.message);
+      }
+      if (goals && goals.length > 1) {
+        console.warn(`Achtung: ${goals.length} Zeilen in user_goals für diesen User gefunden (sollte nur 1 sein). Vermutlich fehlt der UNIQUE-Constraint auf user_id in Supabase. Nehme die neueste Zeile.`);
       }
       if (goals && goals.length > 0) {
         console.log("Geladene Goals aus Supabase:", goals[0]);
