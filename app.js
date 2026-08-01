@@ -595,8 +595,30 @@
 
     function startBarcodeScanner() {
       document.getElementById('scanner-overlay').style.display = 'block';
-      html5QrcodeScanner = new Html5Qrcode("reader");
-      html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 250, height: 160 } }, onScanSuccess).catch(() => { alert("Kamera-Fehler!"); stopBarcodeScanner(); });
+      html5QrcodeScanner = new Html5Qrcode("reader", {
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.CODE_128
+        ],
+        verbose: false
+      });
+      html5QrcodeScanner.start(
+        { facingMode: "environment" },
+        {
+          fps: 15,
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const w = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.9);
+            return { width: w, height: Math.floor(w * 0.45) };
+          },
+          aspectRatio: 1.777778,
+          disableFlip: false,
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+        },
+        onScanSuccess
+      ).catch(() => { alert("Kamera-Fehler!"); stopBarcodeScanner(); });
     }
     async function stopBarcodeScanner() { if (html5QrcodeScanner) { try { await html5QrcodeScanner.stop(); } catch(e) {} html5QrcodeScanner = null; } document.getElementById('scanner-overlay').style.display = 'none'; }
     async function onScanSuccess(text) { await stopBarcodeScanner(); const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${text}.json`); const data = await res.json(); if (data.status === 1) processAndAddProduct(data.product); else alert("Produkt nicht gefunden."); }
