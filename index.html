@@ -400,7 +400,6 @@
   <script>
     const SUPABASE_URL = 'https://djqjrgfiwlhqvchivxqe.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqcWpyZ2Zpd2xocXZjaGl2eHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MjAzMzUsImV4cCI6MjEwMDk5NjMzNX0.3UxQM7UWKsdImLulIKakDNDfPU73Hnt6mUyHQ7ptgNU';
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const VALID_USERS = {
       "elias": { email: "elias@gymtracker.app", pass: "Elias123!", name: "Elias" },
@@ -472,7 +471,7 @@
     };
 
     let todayEntries = [];
-    let openToggles = {}; // Speichert den Ausklapp-Status pro Nährwert-Key
+    let openToggles = {};
 
     let currentUser = null;
     let myChart = null;
@@ -503,7 +502,6 @@
         document.getElementById('current-user-tag').innerText = username;
         document.getElementById('workout-date').value = todayStr;
         
-        loadLocalFoodLists();
         loadSelectedNutriKeys();
         await loadAllData();
         renderWeekStrip();
@@ -624,7 +622,6 @@
           }
         }
 
-        // Filtere Einträge, die diesen Nährwert enthalten
         const keyEntries = todayEntries.filter(entry => entry.nutris && entry.nutris[key] && entry.nutris[key] > 0);
         const entryCount = keyEntries.length;
         const isOpen = !!openToggles[key];
@@ -694,21 +691,8 @@
       });
 
       todayEntries.splice(realIdx, 1);
-      saveLocalTodayEntries();
       await saveTodayNutriToCloud();
       renderNutritionUI();
-    }
-
-    function saveLocalTodayEntries() {
-      if (!currentUser) return;
-      localStorage.setItem(`today_entries_${currentUser.id}_${todayStr}`, JSON.stringify(todayEntries));
-    }
-
-    function loadLocalTodayEntries() {
-      if (!currentUser) return;
-      const saved = localStorage.getItem(`today_entries_${currentUser.id}_${todayStr}`);
-      if (saved) todayEntries = JSON.parse(saved);
-      else todayEntries = [];
     }
 
     async function addSingleNutrition(key) {
@@ -726,7 +710,6 @@
         nutris: singleNutriObj
       });
 
-      saveLocalTodayEntries();
       await saveTodayNutriToCloud();
       input.value = '';
       renderNutritionUI();
@@ -745,26 +728,23 @@
           sugar: todayNutri.sugar,
           fiber: todayNutri.fiber,
           salt: todayNutri.salt,
+          today_entries: todayEntries,
           user_id: currentUser.id 
         },
         { onConflict: 'date,user_id' }
       );
     }
 
-    function loadLocalFoodLists() {
+    async function saveCloudFoodLists() {
       if (!currentUser) return;
-      const favs = localStorage.getItem(`favs_${currentUser.id}`);
-      const recents = localStorage.getItem(`recents_${currentUser.id}`);
-      if (favs) favoriteFoods = JSON.parse(favs);
-      if (recents) recentFoods = JSON.parse(recents);
-      renderFavoritesUI();
-      renderRecentFoodsUI();
-    }
-
-    function saveLocalFoodLists() {
-      if (!currentUser) return;
-      localStorage.setItem(`favs_${currentUser.id}`, JSON.stringify(favoriteFoods));
-      localStorage.setItem(`recents_${currentUser.id}`, JSON.stringify(recentFoods));
+      await supabaseClient.from('user_goals').upsert({
+        user_id: currentUser.id,
+        target_weight: targetWeight,
+        target_kcal: nutriTargets.kcal || 2800,
+        nutri_targets: nutriTargets,
+        favorite_foods: favoriteFoods,
+        recent_foods: recentFoods
+      }, { onConflict: 'user_id' });
     }
 
     async function handleCustomLogin() {
@@ -845,6 +825,8 @@
         } else {
           nutriTargets.kcal = goals[0].target_kcal || 2800;
         }
+        if (goals[0].favorite_foods) favoriteFoods = goals[0].favorite_foods;
+        if (goals[0].recent_foods) recentFoods = goals[0].recent_foods;
       }
 
       const { data: logs } = await supabaseClient.from('daily_logs').select('*').eq('user_id', currentUser.id);
@@ -867,17 +849,20 @@
           todayNutri.sugar = todayLog.sugar || 0;
           todayNutri.fiber = todayLog.fiber || 0;
           todayNutri.salt = todayLog.salt || 0;
+          todayEntries = todayLog.today_entries || [];
         } else {
           todayNutri = { protein: 0, kcal: 0, fat: 0, satFat: 0, carbs: 0, sugar: 0, fiber: 0, salt: 0 };
+          todayEntries = [];
         }
       }
 
-      loadLocalTodayEntries();
       document.getElementById('user-weight').value = userWeight;
       renderDaySelector();
       switchDay(currentDay);
       renderCheckboxGrid();
       renderNutritionUI();
+      renderFavoritesUI();
+      renderRecentFoodsUI();
       renderWeightChart();
     }
 
@@ -1287,7 +1272,14 @@
       });
 
       await supabaseClient.from('user_goals').upsert(
-        { user_id: currentUser.id, target_weight: targetWeight, target_kcal: nutriTargets.kcal || 2800, nutri_targets: nutriTargets },
+        { 
+          user_id: currentUser.id, 
+          target_weight: targetWeight, 
+          target_kcal: nutriTargets.kcal || 2800, 
+          nutri_targets: nutriTargets,
+          favorite_foods: favoriteFoods,
+          recent_foods: recentFoods
+        },
         { onConflict: 'user_id' }
       );
 
@@ -1490,7 +1482,7 @@
       return item;
     }
 
-    function toggleFavorite(foodObj) {
+    async function toggleFavorite(foodObj) {
       const existingIdx = favoriteFoods.findIndex(f => (foodObj.code && f.code === foodObj.code) || f.name === foodObj.name);
 
       if (existingIdx >= 0) {
@@ -1499,7 +1491,7 @@
         favoriteFoods.push(foodObj);
       }
 
-      saveLocalFoodLists();
+      await saveCloudFoodLists();
       renderFavoritesUI();
       
       const searchContainer = document.getElementById('food-search-results');
@@ -1525,12 +1517,12 @@
       });
     }
 
-    function addToRecentFoods(foodObj) {
+    async function addToRecentFoods(foodObj) {
       recentFoods = recentFoods.filter(r => r.name !== foodObj.name);
       recentFoods.unshift(foodObj);
       if (recentFoods.length > 5) recentFoods.pop();
 
-      saveLocalFoodLists();
+      await saveCloudFoodLists();
       renderRecentFoodsUI();
     }
 
@@ -1598,14 +1590,13 @@
             nutris: addedNutrisForEntry
           });
 
-          saveLocalTodayEntries();
           await saveTodayNutriToCloud();
-          addToRecentFoods(foodObj);
+          await addToRecentFoods(foodObj);
 
           renderNutritionUI();
           document.getElementById('food-search-results').innerHTML = '';
           document.getElementById('food-search-query').value = '';
-          alert(`Hinzugefügt für ${name} (${amount}${unit})!\nDeine Tageswerte wurden aktualisiert.`);
+          alert(`Hinzugefügt für ${name} (${amount}${unit})!\nAlle Nährwerte wurden im Hintergrund aktualisiert.`);
         }
       }
     }
