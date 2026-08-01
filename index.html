@@ -66,10 +66,12 @@
     .progress-bar-fill-kcal { height: 100%; background: linear-gradient(90deg, var(--accent), var(--orange)); width: 0%; border-radius: 99px; transition: width 0.4s ease; }
 
     .exercise-card { background: var(--card); border-radius: 14px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); width: 100%; position: relative; }
-    .exercise-title { font-size: 0.88rem; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; padding-right: 24px; }
+    .exercise-title { font-size: 0.88rem; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; padding-right: 50px; }
     
-    .delete-ex-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--sub); font-size: 1rem; cursor: pointer; padding: 2px 6px; border-radius: 6px; transition: color 0.2s; }
-    .delete-ex-btn:hover { color: var(--red); }
+    .action-btn-group { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; }
+    .ex-action-btn { background: none; border: none; color: var(--sub); font-size: 0.9rem; cursor: pointer; padding: 2px 5px; border-radius: 6px; transition: color 0.2s; }
+    .ex-action-btn:hover { color: var(--text); }
+    .ex-action-btn.delete:hover { color: var(--red); }
 
     .set-container { margin-bottom: 8px; width: 100%; }
     .set-row { display: grid; grid-template-columns: 42px 1fr 1fr; gap: 6px; align-items: center; width: 100%; }
@@ -291,7 +293,6 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqcWpyZ2Zpd2xocXZjaGl2eHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MjAzMzUsImV4cCI6MjEwMDk5NjMzNX0.3UxQM7UWKsdImLulIKakDNDfPU73Hnt6mUyHQ7ptgNU';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // VORDEFINIERTE BENUTZER (Inklusive Yoshi)
     const VALID_USERS = {
       "elias": { email: "elias@gymtracker.app", pass: "Elias123!", name: "Elias" },
       "anh": { email: "anh@gymtracker.app", pass: "Anh12345!", name: "Anh" },
@@ -561,7 +562,10 @@
         card.className = 'exercise-card';
         
         let html = `
-          <button class="delete-ex-btn" onclick="removeExercise(${exIdx})" title="Übung löschen">✕</button>
+          <div class="action-btn-group">
+            <button class="ex-action-btn" onclick="editExercise(${exIdx})" title="Übung bearbeiten">✏️</button>
+            <button class="ex-action-btn delete" onclick="removeExercise(${exIdx})" title="Übung löschen">✕</button>
+          </div>
           <div class="exercise-title">${ex.name} ${ex.subtitle ? `<span style="font-size:0.72rem; color:var(--accent);">${ex.subtitle}</span>` : ''}</div>
         `;
 
@@ -609,6 +613,43 @@
 
       document.getElementById('new-ex-name').value = '';
       document.getElementById('new-ex-sub').value = '';
+
+      renderWorkout();
+      populateExercisePicker();
+      renderChart();
+    }
+
+    async function editExercise(exIdx) {
+      const ex = userPlans[currentDay].exercises[exIdx];
+      if (!ex) return;
+
+      const newName = prompt("Neuer Name der Übung:", ex.name);
+      if (newName === null) return; // Abgebrochen
+
+      const newSub = prompt("Neuer Fokus / Untertitel (optional):", ex.subtitle || "");
+      if (newSub === null) return;
+
+      const newSetsStr = prompt("Anzahl der Sätze (1-10):", ex.sets);
+      if (newSetsStr === null) return;
+
+      const newSets = parseInt(newSetsStr) || ex.sets;
+
+      // Werte aktualisieren
+      ex.name = newName.trim() || ex.name;
+      if (newSub.trim()) {
+        ex.subtitle = newSub.trim();
+      } else {
+        delete ex.subtitle;
+      }
+      ex.sets = Math.max(1, Math.min(10, newSets));
+
+      // In Cloud speichern
+      await supabaseClient.from('user_plans').upsert({
+        user_id: currentUser.id,
+        day_key: currentDay,
+        day_label: userPlans[currentDay].label,
+        exercises: userPlans[currentDay].exercises
+      }, { onConflict: 'user_id,day_key' });
 
       renderWorkout();
       populateExercisePicker();
