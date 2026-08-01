@@ -574,12 +574,18 @@
       const { data: workouts } = await supabaseClient.from('workouts').select('*').eq('user_id', currentUser.id);
       dbHistory = workouts || [];
 
-      const { data: goals } = await supabaseClient.from('user_goals').select('*').eq('user_id', currentUser.id);
+      const { data: goals, error: goalsError } = await supabaseClient.from('user_goals').select('*').eq('user_id', currentUser.id);
+      if (goalsError) {
+        console.error("Fehler beim Laden der Goals:", goalsError.message);
+      }
       if (goals && goals.length > 0) {
+        console.log("Geladene Goals aus Supabase:", goals[0]);
         targetWeight = goals[0].target_weight || 75;
         if (goals[0].nutri_targets) nutriTargets = goals[0].nutri_targets;
         if (goals[0].favorite_foods) favoriteFoods = goals[0].favorite_foods;
         if (goals[0].recent_foods) recentFoods = goals[0].recent_foods;
+      } else {
+        console.log("Keine Goals in Supabase für diesen User gefunden.");
       }
 
       const { data: logs } = await supabaseClient.from('daily_logs').select('*').eq('user_id', currentUser.id);
