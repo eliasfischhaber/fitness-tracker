@@ -267,6 +267,25 @@
           <div class="search-results-list" id="food-search-results"></div>
         </div>
 
+        <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px;">
+          <div class="card-title" style="font-size:0.85rem; margin-bottom:6px;">✏️ Lebensmittel manuell eingeben</div>
+          <div class="input-group" style="margin-bottom:6px;">
+            <input type="text" id="manual-food-name" placeholder="Name des Produkts">
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
+            <input type="number" id="manual-food-protein" placeholder="Protein (g/100g)">
+            <input type="number" id="manual-food-kcal" placeholder="Kalorien (kcal/100g)">
+            <input type="number" id="manual-food-carbs" placeholder="KH (g/100g)">
+            <input type="number" id="manual-food-fat" placeholder="Fett (g/100g)">
+          </div>
+          <button class="btn-small" style="width:100%;" onclick="addManualFood()">+ Zum Verlauf hinzufügen</button>
+        </div>
+
+        <div id="manual-food-section" style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; display: none;">
+          <div class="card-title" style="font-size:0.85rem; margin-bottom:6px;">📝 Manuell eingegebene Lebensmittel</div>
+          <div class="search-results-list" id="manual-food-list"></div>
+        </div>
+
         <div id="favorites-section" style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; display: none;">
           <div class="card-title" style="font-size:0.85rem; margin-bottom:6px;">⭐️ Deine Favoriten</div>
           <div class="search-results-list" id="favorites-list"></div>
@@ -331,6 +350,7 @@
     let myWeightChart = null;
     let favoriteFoods = [];
     let recentFoods = [];
+    let manualFoods = [];
     let html5QrcodeScanner = null;
 
     const todayStr = new Date().toISOString().split('T')[0];
@@ -555,7 +575,7 @@
       if (!currentUser) return;
       const { error } = await supabaseClient.from('user_goals').upsert({
         user_id: currentUser.id, target_weight: targetWeight, target_kcal: nutriTargets.kcal || 2800,
-        nutri_targets: nutriTargets, favorite_foods: favoriteFoods, recent_foods: recentFoods
+        nutri_targets: nutriTargets, favorite_foods: favoriteFoods, recent_foods: recentFoods, manual_foods: manualFoods
       }, { onConflict: 'user_id' });
       if (error) {
         console.error("Fehler beim Speichern der Favoriten/Recent-Liste:", error.message, error);
@@ -592,6 +612,7 @@
         if (goals[0].nutri_targets) nutriTargets = goals[0].nutri_targets;
         if (goals[0].favorite_foods) favoriteFoods = goals[0].favorite_foods;
         if (goals[0].recent_foods) recentFoods = goals[0].recent_foods;
+        if (goals[0].manual_foods) manualFoods = goals[0].manual_foods;
       } else {
         console.log("Keine Goals in Supabase für diesen User gefunden.");
       }
@@ -614,6 +635,7 @@
       renderNutritionUI();
       renderFavoritesUI();   // <-- Direkt nach dem Laden gerendert!
       renderRecentUI();      // <-- Direkt nach dem Laden gerendert!
+      renderManualFoodUI();
       renderWeightChart();
       renderWeekStrip();
     }
@@ -921,7 +943,9 @@
 
       await saveCloudFoodLists();
       renderFavoritesUI();
-      
+      renderRecentUI();
+      renderManualFoodUI();
+
       const query = document.getElementById('food-search-query').value.trim();
       if (query) searchFoodByName();
     }
@@ -950,6 +974,44 @@
       if (!recentFoods.length) { sec.style.display = 'none'; return; }
       sec.style.display = 'block'; 
       recentFoods.forEach(f => list.appendChild(createFoodCard(f)));
+    }
+
+    async function addManualFood() {
+      const nameInput = document.getElementById('manual-food-name');
+      const name = nameInput.value.trim();
+      if (!name) return alert("Bitte einen Namen eingeben!");
+
+      const protein = parseFloat(document.getElementById('manual-food-protein').value) || 0;
+      const kcal = parseFloat(document.getElementById('manual-food-kcal').value) || 0;
+      const carbs = parseFloat(document.getElementById('manual-food-carbs').value) || 0;
+      const fat = parseFloat(document.getElementById('manual-food-fat').value) || 0;
+
+      const foodObj = {
+        name,
+        nutris: { protein, kcal, carbs, fat, satFat: 0, sugar: 0, fiber: 0, salt: 0 },
+        categories: '', quantity: '', code: ''
+      };
+
+      manualFoods = manualFoods.filter(f => f.name !== name);
+      manualFoods.unshift(foodObj);
+
+      await saveCloudFoodLists();
+      renderManualFoodUI();
+
+      nameInput.value = '';
+      document.getElementById('manual-food-protein').value = '';
+      document.getElementById('manual-food-kcal').value = '';
+      document.getElementById('manual-food-carbs').value = '';
+      document.getElementById('manual-food-fat').value = '';
+    }
+
+    function renderManualFoodUI() {
+      const sec = document.getElementById('manual-food-section');
+      const list = document.getElementById('manual-food-list');
+      list.innerHTML = '';
+      if (!manualFoods.length) { sec.style.display = 'none'; return; }
+      sec.style.display = 'block';
+      manualFoods.forEach(f => list.appendChild(createFoodCard(f)));
     }
 
     function extractNutris(p) {
