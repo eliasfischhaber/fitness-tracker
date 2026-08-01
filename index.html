@@ -241,13 +241,18 @@
       <!-- NÄHRWERT-TRACKING -->
       <div class="card">
         <div class="card-title"><span>Nährwert-Tracking</span></div>
-        <div class="input-group" style="margin-bottom: 12px;">
-          <span class="input-label" style="margin-bottom: 6px;">Sichtbare Nährwerte wählen:</span>
+
+        <button class="toggle-section-btn" onclick="toggleSettingsSection('visible')" style="margin-top:0;">
+          <span>👁️ Sichtbare Nährwerte wählen</span><span id="toggle-icon-visible">▼</span>
+        </button>
+        <div id="settings-section-visible" style="display:none; margin-top:8px; margin-bottom: 12px;">
           <div class="checkbox-grid" id="nutri-checkbox-grid"></div>
         </div>
 
-        <div style="border-top: 1px solid var(--border); padding-top: 10px; margin-bottom: 12px;">
-          <div style="font-size: 0.78rem; font-weight: 700; color: var(--sub); margin-bottom: 6px;">🎯 Deine Tagesziele konfigurieren (Muskelaufbau):</div>
+        <button class="toggle-section-btn" onclick="toggleSettingsSection('goals')">
+          <span>🎯 Tagesziele konfigurieren</span><span id="toggle-icon-goals">▼</span>
+        </button>
+        <div id="settings-section-goals" style="display:none; border-top: 1px solid var(--border); padding-top: 10px; margin-top:8px; margin-bottom: 12px;">
           <div class="goals-grid" id="nutri-goals-grid"></div>
           <button class="btn-small" style="width: 100%; margin-bottom: 6px;" onclick="saveGoals()">Ziele Speichern</button>
         </div>
@@ -538,6 +543,14 @@
           </div>
         `;
       });
+    }
+
+    function toggleSettingsSection(name) {
+      const sec = document.getElementById(`settings-section-${name}`);
+      const icon = document.getElementById(`toggle-icon-${name}`);
+      const isOpen = sec.style.display !== 'none';
+      sec.style.display = isOpen ? 'none' : 'block';
+      icon.innerText = isOpen ? '▼' : '▲';
     }
 
     function toggleNutriSubSection(key) { openToggles[key] = !openToggles[key]; renderNutritionUI(); }
