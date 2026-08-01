@@ -326,8 +326,11 @@
   <div id="scanner-overlay">
     <button id="close-scanner-btn" onclick="stopBarcodeScanner()">✕ Schließen</button>
     <div id="reader"></div>
+    <div id="scanner-hint" style="position:absolute; bottom:max(24px, env(safe-area-inset-bottom)); left:0; right:0; text-align:center; color:#FFF; font-size:0.85rem; background:rgba(0,0,0,0.55); padding:10px 16px; z-index:100000;">
+      📷 Strichcode waagerecht, gut beleuchtet & mittig halten
+    </div>
   </div>
 
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>
