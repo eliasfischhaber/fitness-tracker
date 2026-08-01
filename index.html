@@ -137,6 +137,11 @@
     .save-btn { width: 100%; padding: 16px; background: var(--accent); color: #FFF; border: none; border-radius: 14px; font-size: 0.95rem; font-weight: 800; cursor: pointer; margin-top: 8px; box-shadow: 0 4px 20px var(--accent-glow); -webkit-user-select: none; }
     .chart-container { height: 140px; width: 100%; margin-top: 6px; }
 
+    /* LÖSCHEN DER TAGE STYLING */
+    .history-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
+    .history-chip { display: flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); padding: 4px 8px; border-radius: 8px; font-size: 0.75rem; color: var(--sub); font-weight: 600; }
+    .history-chip button { background: none; border: none; color: var(--red); cursor: pointer; font-size: 0.8rem; line-height: 1; }
+
     .user-badge { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: rgba(99, 102, 241, 0.15); padding: 4px 8px; border-radius: 6px; }
     .input-group { display: flex; flex-direction: column; gap: 2px; width: 100%; }
     .input-label { font-size: 0.75rem; color: var(--sub); font-weight: 600; margin-bottom: 2px; }
@@ -224,7 +229,7 @@
           <div class="day-selector-wrapper" id="day-selector-list"></div>
         </div>
         <div style="display: flex; justify-content: flex-end;">
-          <button class="btn-outline" style="color: var(--red); border-color: rgba(239, 68, 68, 0.3);" onclick="deleteCurrentDay()">🗑️ Tag löschen</button>
+          <button class="btn-outline" style="color: var(--red); border-color: rgba(239, 68, 68, 0.3);" onclick="deleteCurrentDay()">🗑️ Plan löschen</button>
         </div>
       </div>
 
@@ -239,6 +244,12 @@
         </select>
         <select id="exercise-picker" style="display: none; margin-bottom:6px;" onchange="renderChart()"></select>
         <div class="chart-container"><canvas id="progressChart"></canvas></div>
+        
+        <!-- NEU: LISTE ALLER GESPEICHERTEN TAGE ZUM LÖSCHEN -->
+        <div id="history-manage-container" style="display: none; margin-top: 12px;">
+          <div style="font-size: 0.75rem; color: var(--sub); font-weight: 700;">📅 Gespeicherte Einheiten löschen:</div>
+          <div class="history-list" id="history-chip-list"></div>
+        </div>
       </div>
 
       <div id="workout-container"></div>
@@ -833,9 +844,46 @@
         },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#71717A' } }, y: { ticks: { color: '#71717A' } } } }
       });
+
+      // LÖSCH-CHIPS ERZEUGEN
+      renderHistoryChips(dates);
     }
 
-    // INTELLIGENTES SPEICHERN (ÜBERSCHREIBT NUR BEARBEITETE ÜBUNGEN)
+    function renderHistoryChips(dates) {
+      const container = document.getElementById('history-manage-container');
+      const chipList = document.getElementById('history-chip-list');
+      chipList.innerHTML = '';
+
+      if (!dates || dates.length === 0) {
+        container.style.display = 'none';
+        return;
+      }
+
+      container.style.display = 'block';
+      dates.forEach(d => {
+        const chip = document.createElement('div');
+        chip.className = 'history-chip';
+        chip.innerHTML = `
+          <span>${formatDateGerman(d)}</span>
+          <button onclick="deleteWorkoutDate('${d}')" title="Diesen Tag aus der Grafik löschen">✕</button>
+        `;
+        chipList.appendChild(chip);
+      });
+    }
+
+    async function deleteWorkoutDate(dateStr) {
+      if (!confirm(`Möchtest du die Einträge vom ${formatDateGerman(dateStr)} wirklich aus deiner Statistik löschen?`)) return;
+
+      await supabaseClient
+        .from('workouts')
+        .delete()
+        .eq('user_id', currentUser.id)
+        .eq('day_type', currentDay)
+        .eq('date', dateStr);
+
+      await loadAllData();
+    }
+
     async function saveData() {
       const selectedDate = document.getElementById('workout-date').value || todayStr;
       let newEntries = [];
@@ -879,7 +927,6 @@
 
       if (newEntries.length === 0) return alert("Bitte mindestens ein Feld ausfüllen!");
 
-      // Nur die Einträge für die Übungen löschen, die HEUTE geändert wurden
       for (let exName of editedExerciseNames) {
         await supabaseClient.from('workouts')
           .delete()
