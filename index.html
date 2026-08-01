@@ -719,7 +719,6 @@
       renderWorkout();
     }
 
-    // NUREN NAMEN / UNTERTITEL BEARBEITEN UND HISTORIE IN SUPABASE MIGRATEN
     async function editExercise(exIdx) {
       const ex = userPlans[currentDay].exercises[exIdx];
       if (!ex) return;
@@ -727,14 +726,13 @@
       const oldName = ex.name;
 
       const newName = prompt("Neuer Name der Übung:", ex.name);
-      if (newName === null) return; // Abgebrochen
+      if (newName === null) return;
 
       const newSub = prompt("Neuer Fokus / Untertitel (optional):", ex.subtitle || "");
       if (newSub === null) return;
 
       const trimmedName = newName.trim() || oldName;
 
-      // 1. Wenn der Name geändert wurde, historische Daten in Supabase aktualisieren
       if (trimmedName !== oldName) {
         await supabaseClient
           .from('workouts')
@@ -745,14 +743,12 @@
         ex.name = trimmedName;
       }
 
-      // 2. Untertitel aktualisieren
       if (newSub.trim()) {
         ex.subtitle = newSub.trim();
       } else {
         delete ex.subtitle;
       }
 
-      // 3. Plan in Cloud speichern
       await supabaseClient.from('user_plans').upsert({
         user_id: currentUser.id,
         day_key: currentDay,
@@ -760,7 +756,6 @@
         exercises: userPlans[currentDay].exercises
       }, { onConflict: 'user_id,day_key' });
 
-      // Daten neu laden, damit die Zuordnung der Historie aktualisiert wird
       await loadAllData();
     }
 
@@ -840,14 +835,19 @@
       });
     }
 
+    // INTELLIGENTES SPEICHERN (ÜBERSCHREIBT NUR BEARBEITETE ÜBUNGEN)
     async function saveData() {
       const selectedDate = document.getElementById('workout-date').value || todayStr;
       let newEntries = [];
+      let editedExerciseNames = new Set();
       const currentPlan = userPlans[currentDay];
 
       if (!currentPlan || !currentPlan.exercises) return;
 
       currentPlan.exercises.forEach((ex, exIdx) => {
+        let hasAnyInputForEx = false;
+        let exEntries = [];
+
         for(let s = 0; s < ex.sets; s++) {
           const wInput = document.getElementById(`w_${exIdx}_${s}`);
           const rInput = document.getElementById(`r_${exIdx}_${s}`);
@@ -857,7 +857,8 @@
             const r = parseInt(rInput.value) || 0;
             
             if(w > 0 || r > 0) {
-              newEntries.push({
+              hasAnyInputForEx = true;
+              exEntries.push({
                 date: selectedDate,
                 day_type: currentDay,
                 exercise_name: ex.name,
@@ -869,13 +870,27 @@
             }
           }
         }
+
+        if (hasAnyInputForEx) {
+          editedExerciseNames.add(ex.name);
+          newEntries.push(...exEntries);
+        }
       });
 
       if (newEntries.length === 0) return alert("Bitte mindestens ein Feld ausfüllen!");
 
-      await supabaseClient.from('workouts').delete().eq('date', selectedDate).eq('day_type', currentDay).eq('user_id', currentUser.id);
+      // Nur die Einträge für die Übungen löschen, die HEUTE geändert wurden
+      for (let exName of editedExerciseNames) {
+        await supabaseClient.from('workouts')
+          .delete()
+          .eq('date', selectedDate)
+          .eq('day_type', currentDay)
+          .eq('exercise_name', exName)
+          .eq('user_id', currentUser.id);
+      }
+
       await supabaseClient.from('workouts').insert(newEntries);
-      alert("Training für deinen Account gespeichert!");
+      alert("Einheit gespeichert!");
       await loadAllData();
       renderWorkout();
     }
