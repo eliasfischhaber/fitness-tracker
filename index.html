@@ -274,16 +274,32 @@
 
         <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px;">
           <div class="card-title" style="font-size:0.85rem; margin-bottom:6px;">✏️ Lebensmittel manuell eingeben</div>
-          <div class="input-group" style="margin-bottom:6px;">
-            <input type="text" id="manual-food-name" placeholder="Name des Produkts">
+
+          <div class="input-group" style="margin-bottom:10px;">
+            <span class="input-label">Produktname</span>
+            <input type="text" id="manual-food-name" placeholder="z.B. Haferflocken">
           </div>
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
-            <input type="number" id="manual-food-protein" placeholder="Protein (g/100g)">
-            <input type="number" id="manual-food-kcal" placeholder="Kalorien (kcal/100g)">
-            <input type="number" id="manual-food-carbs" placeholder="KH (g/100g)">
-            <input type="number" id="manual-food-fat" placeholder="Fett (g/100g)">
+
+          <div class="input-label" style="margin-bottom:6px;">Nährwerte pro 100g / 100ml:</div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px 6px;">
+            <div class="input-group">
+              <span class="input-label">Protein (g)</span>
+              <input type="number" inputmode="decimal" id="manual-food-protein" placeholder="0">
+            </div>
+            <div class="input-group">
+              <span class="input-label">Kalorien (kcal)</span>
+              <input type="number" inputmode="decimal" id="manual-food-kcal" placeholder="0">
+            </div>
+            <div class="input-group">
+              <span class="input-label">Kohlenhydrate (g)</span>
+              <input type="number" inputmode="decimal" id="manual-food-carbs" placeholder="0">
+            </div>
+            <div class="input-group">
+              <span class="input-label">Fett (g)</span>
+              <input type="number" inputmode="decimal" id="manual-food-fat" placeholder="0">
+            </div>
           </div>
-          <button class="btn-small" style="width:100%;" onclick="addManualFood()">+ Zum Verlauf hinzufügen</button>
+          <button class="btn-small" style="width:100%; margin-top:2px;" onclick="addManualFood()">+ Zum Verlauf hinzufügen</button>
         </div>
 
         <div id="manual-food-section" style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; display: none;">
@@ -577,11 +593,14 @@
     }
 
     async function saveTodayNutriToCloud() {
-      const { error } = await supabaseClient.from('daily_logs').upsert({ 
+      const payload = { 
         date: todayStr, weight: userWeight, protein: todayNutri.protein, kcal: todayNutri.kcal, 
         fat: todayNutri.fat, sat_fat: todayNutri.satFat, carbs: todayNutri.carbs, sugar: todayNutri.sugar, 
         fiber: todayNutri.fiber, salt: todayNutri.salt, today_entries: todayEntries, user_id: currentUser.id 
-      }, { onConflict: 'date,user_id' });
+      };
+      console.log("DEBUG speichere daily_logs Payload:", payload);
+      const { data, error } = await supabaseClient.from('daily_logs').upsert(payload, { onConflict: 'date,user_id' }).select();
+      console.log("DEBUG daily_logs upsert Antwort:", data, error);
       if (error) {
         console.error("Fehler beim Speichern des Tages-Trackings:", error.message, error);
         alert("Eintrag konnte nicht gespeichert werden: " + error.message);
@@ -638,14 +657,18 @@
       if (logsError) {
         console.error("Fehler beim Laden der Tages-Logs:", logsError.message, logsError);
       }
+      console.log("DEBUG todayStr:", todayStr);
+      console.log("DEBUG alle geladenen daily_logs:", logs);
       if (logs && logs.length > 0) {
         weightHistory = logs.filter(l => l.weight > 0).sort((a, b) => new Date(a.date) - new Date(b.date));
         if (weightHistory.length > 0) { userWeight = weightHistory[weightHistory.length - 1].weight; document.getElementById('latest-weight-display').innerText = `${userWeight} kg`; }
         const todaysLogs = logs.filter(l => l.date === todayStr);
+        console.log("DEBUG todaysLogs (exakter Match auf todayStr):", todaysLogs);
         if (todaysLogs.length > 1) {
           console.warn(`Achtung: ${todaysLogs.length} Zeilen in daily_logs für heute gefunden (sollte nur 1 sein). Vermutlich fehlt der UNIQUE-Constraint auf (date,user_id). Nehme die letzte.`);
         }
         const todayLog = todaysLogs[todaysLogs.length - 1];
+        console.log("DEBUG verwendeter todayLog:", todayLog);
         if (todayLog) {
           todayNutri = { protein: todayLog.protein || 0, kcal: todayLog.kcal || 0, fat: todayLog.fat || 0, satFat: todayLog.sat_fat || 0, carbs: todayLog.carbs || 0, sugar: todayLog.sugar || 0, fiber: todayLog.fiber || 0, salt: todayLog.salt || 0 };
           todayEntries = todayLog.today_entries || [];
