@@ -485,6 +485,14 @@
         return vol;
       });
 
+      // NEU: Wachstum zwischen den letzten beiden Trainingstagen berechnen
+      if (points.length >= 2 && points[points.length - 2] > 0) {
+        const growth = ((points[points.length - 1] - points[points.length - 2]) / points[points.length - 2]) * 100;
+        document.getElementById('growth-val').innerText = `${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%`;
+      } else {
+        document.getElementById('growth-val').innerText = '+0.0%';
+      }
+
       if (myChart) myChart.destroy();
       myChart = new Chart(document.getElementById('progressChart').getContext('2d'), {
         type: 'line',
