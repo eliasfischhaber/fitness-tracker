@@ -295,7 +295,7 @@
       if (!userPlans[currentDay]) currentDay = Object.keys(userPlans)[0] || 'A';
 
       const { data: workouts } = await supabaseClient.from('workouts').select('*').eq('user_id', currentUser.id);
-      dbHistory = workouts || [];
+      dbHistory = (workouts || []).sort((a, b) => new Date(a.date) - new Date(b.date));
 
       const { data: goals, error: goalsError } = await supabaseClient.from('user_goals').select('*').eq('user_id', currentUser.id).order('id', { ascending: false });
       if (goalsError) {
