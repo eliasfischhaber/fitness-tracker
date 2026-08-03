@@ -485,7 +485,6 @@
         return vol;
       });
 
-      // NEU: Wachstum zwischen den letzten beiden Trainingstagen berechnen
       if (points.length >= 2 && points[points.length - 2] > 0) {
         const growth = ((points[points.length - 1] - points[points.length - 2]) / points[points.length - 2]) * 100;
         document.getElementById('growth-val').innerText = `${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%`;
@@ -830,10 +829,3 @@
       document.body.style.opacity = '1';
     }
 
-    // Automatisch synchronisieren, wenn die App in den Vordergrund rückt
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible" && currentUser) {
-        loadAllData();
-      }
-    });
-    window.onload = init;
