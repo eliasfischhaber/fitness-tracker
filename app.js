@@ -44,6 +44,7 @@
     let favoriteFoods = [];
     let recentFoods = [];
     let manualFoods = [];
+    let nutriLogHistory = [];
     let html5QrcodeScanner = null;
 
     const todayStr = new Date().toISOString().split('T')[0];
@@ -222,6 +223,7 @@
           </div>
         `;
       });
+      renderPet();
     }
 
     function toggleSettingsSection(name) {
@@ -321,6 +323,7 @@
         console.error("Fehler beim Laden der Tages-Logs:", logsError.message, logsError);
       }
       if (logs && logs.length > 0) {
+        nutriLogHistory = logs;
         weightHistory = logs.filter(l => l.weight > 0).sort((a, b) => new Date(a.date) - new Date(b.date));
         if (weightHistory.length > 0) { userWeight = weightHistory[weightHistory.length - 1].weight; document.getElementById('latest-weight-display').innerText = `${userWeight} kg`; }
         const todaysLogs = logs.filter(l => l.date === todayStr);
@@ -349,9 +352,12 @@
     function switchMainTab(tab) {
       document.getElementById('view-workout').style.display = (tab === 'WORKOUT') ? 'block' : 'none';
       document.getElementById('view-dashboard').style.display = (tab === 'DASHBOARD') ? 'block' : 'none';
+      document.getElementById('view-pet').style.display = (tab === 'PET') ? 'block' : 'none';
       document.getElementById('tab-btn-workout').classList.toggle('active', tab === 'WORKOUT');
       document.getElementById('tab-btn-dash').classList.toggle('active', tab === 'DASHBOARD');
+      document.getElementById('tab-btn-pet').classList.toggle('active', tab === 'PET');
       if (tab === 'DASHBOARD') renderWeightChart();
+      if (tab === 'PET') renderPet();
     }
 
     function renderDaySelector() {
@@ -551,6 +557,52 @@
         data: { labels: weightHistory.map(w => formatDateGerman(w.date)), datasets: [{ data: weightHistory.map(w => w.weight).length ? weightHistory.map(w => w.weight) : [userWeight], borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.12)', fill: true, tension: 0.35 }] },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
       });
+    }
+
+    // Berechnet einen "Fütterungs-Score" (5-95) aus dem Schnitt der letzten Tage
+    // im Vergleich zum Kalorienziel. 50 = im Ziel, darunter = zu wenig, darüber = zu viel.
+    function getPetFatnessScore() {
+      const target = nutriTargets.kcal || 2800;
+      let entries = (nutriLogHistory || [])
+        .filter(l => l.kcal > 0 && l.date !== todayStr)
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 6)
+        .map(l => l.kcal);
+      if (todayNutri.kcal > 0) entries.unshift(todayNutri.kcal);
+      if (!entries.length) return 50; // Noch keine Daten -> neutrale Katze
+      const avgKcal = entries.reduce((a, b) => a + b, 0) / entries.length;
+      const ratio = avgKcal / target;
+      return Math.max(5, Math.min(95, Math.round(ratio * 50)));
+    }
+
+    function renderPet() {
+      const petBody = document.getElementById('pet-body');
+      if (!petBody) return; // Tab evtl. noch nicht im DOM
+
+      const score = getPetFatnessScore();
+      const rx = 26 + (score / 100) * 42; // 26 (dünn) .. 68 (dick)
+      const ry = 34 + (score / 100) * 18; // 34 (dünn) .. 52 (dick)
+
+      petBody.setAttribute('rx', rx);
+      petBody.setAttribute('ry', ry);
+      document.getElementById('pet-shadow').setAttribute('rx', rx * 1.25);
+      document.getElementById('pet-paw-l').setAttribute('cx', 100 - rx * 0.62);
+      document.getElementById('pet-paw-r').setAttribute('cx', 100 + rx * 0.62);
+
+      let statusText, mouthPath;
+      if (score < 20) { statusText = "🥺 Deine Katze hungert! Bitte füttere sie mehr."; mouthPath = "M 90 100 Q 100 90 110 100"; }
+      else if (score < 40) { statusText = "😿 Etwas hager – ein bisschen mehr füttern wäre gut."; mouthPath = "M 92 98 Q 100 94 108 98"; }
+      else if (score < 65) { statusText = "😻 Kerngesund und rundum zufrieden!"; mouthPath = "M 92 96 Q 100 102 108 96"; }
+      else if (score < 85) { statusText = "😸 Schön rundlich und gemütlich."; mouthPath = "M 90 96 Q 100 104 110 96"; }
+      else { statusText = "🙀 Der Napf ist ständig leer... etwas kürzertreten?"; mouthPath = "M 88 97 Q 100 105 112 97"; }
+
+      document.getElementById('pet-mouth').setAttribute('d', mouthPath);
+      document.getElementById('pet-status-text').innerText = statusText;
+
+      const target = nutriTargets.kcal || 2800;
+      document.getElementById('pet-kcal-hint').innerText = todayNutri.kcal > 0
+        ? `Heute gefüttert: ${Math.round(todayNutri.kcal)} / ${target} kcal`
+        : `Noch nichts gefüttert heute (Ziel: ${target} kcal)`;
     }
 
     function renderWeekStrip() {
@@ -829,3 +881,10 @@
       document.body.style.opacity = '1';
     }
 
+    // Automatisch synchronisieren, wenn die App in den Vordergrund rückt
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && currentUser) {
+        loadAllData();
+      }
+    });
+    window.onload = init;

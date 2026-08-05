@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Gym & Nutrition Pro v1</title>
+  <title>Gym & Nutrition Pro</title>
   
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -159,6 +159,7 @@
     <div class="nav-tabs">
       <button class="tab-btn active" id="tab-btn-workout" onclick="switchMainTab('WORKOUT')">🏋️ Workout</button>
       <button class="tab-btn" id="tab-btn-dash" onclick="switchMainTab('DASHBOARD')">📊 Dashboard</button>
+      <button class="tab-btn" id="tab-btn-pet" onclick="switchMainTab('PET')">🐱 Haustier</button>
     </div>
 
     <!-- REITER 1: WORKOUT -->
@@ -321,6 +322,37 @@
         </div>
       </div>
     </div>
+
+    <div id="view-pet" style="display: none;">
+      <div class="card" style="text-align:center;">
+        <div class="card-title" style="justify-content:center;">🐱 Dein Fitness-Kumpan</div>
+        <p style="font-size:0.75rem; color:var(--sub); margin: 0 0 10px 0;">Er wird dicker oder dünner, je nachdem wie gut du dein Kalorienziel triffst.</p>
+
+        <svg id="pet-svg" viewBox="0 0 200 200" width="220" height="220" style="display:block; margin:0 auto;">
+          <ellipse id="pet-shadow" cx="100" cy="180" rx="55" ry="8" fill="rgba(0,0,0,0.28)"/>
+          <path id="pet-tail" d="M 145 148 Q 188 138 182 98 Q 180 78 160 84" stroke="#E8975C" stroke-width="12" stroke-linecap="round" fill="none"/>
+          <ellipse id="pet-paw-l" cx="72" cy="172" rx="14" ry="10" fill="#F0A868"/>
+          <ellipse id="pet-paw-r" cx="128" cy="172" rx="14" ry="10" fill="#F0A868"/>
+          <ellipse id="pet-body" cx="100" cy="140" rx="45" ry="42" fill="#F0A868"/>
+          <circle cx="100" cy="80" r="38" fill="#F0A868"/>
+          <polygon points="70,55 62,25 92,50" fill="#F0A868"/>
+          <polygon points="130,55 138,25 108,50" fill="#F0A868"/>
+          <polygon points="72,52 68,34 86,50" fill="#F7C9A0"/>
+          <polygon points="128,52 132,34 114,50" fill="#F7C9A0"/>
+          <g id="pet-face">
+            <circle cx="85" cy="80" r="4" fill="#2A2A2A"/>
+            <circle cx="115" cy="80" r="4" fill="#2A2A2A"/>
+            <polygon points="96,88 104,88 100,93" fill="#E8798A"/>
+            <path id="pet-mouth" d="M 92 96 Q 100 102 108 96" stroke="#2A2A2A" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <path d="M 60 90 L 30 85 M 60 94 L 30 96 M 60 98 L 32 106" stroke="#2A2A2A" stroke-width="1" opacity="0.5"/>
+            <path d="M 140 90 L 170 85 M 140 94 L 170 96 M 140 98 L 168 106" stroke="#2A2A2A" stroke-width="1" opacity="0.5"/>
+          </g>
+        </svg>
+
+        <div id="pet-status-text" style="font-size:0.95rem; font-weight:700; margin-top: 10px;"></div>
+        <div id="pet-kcal-hint" style="font-size:0.75rem; color:var(--sub); margin-top: 4px;"></div>
+      </div>
+    </div>
   </div>
 
   <div id="scanner-overlay">
@@ -331,6 +363,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
