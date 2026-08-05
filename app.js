@@ -37,6 +37,7 @@
     let nutriTargets = { protein: 150, kcal: 2800, carbs: 350, fat: 75, sugar: 50, satFat: 25, fiber: 30, salt: 6 };
     let todayNutri = { protein: 0, kcal: 0, fat: 0, satFat: 0, carbs: 0, sugar: 0, fiber: 0, salt: 0 };
     let todayEntries = [];
+    let selectedNutriDate;
     let openToggles = {};
     let currentUser = null;
     let myChart = null;
@@ -66,6 +67,8 @@
         const username = user.user_metadata?.name || "User";
         document.getElementById('current-user-tag').innerText = username;
         document.getElementById('workout-date').value = todayStr;
+        selectedNutriDate = todayStr;
+        document.getElementById('nutri-date-picker').value = todayStr;
         
         await loadAllData();
       } else {
@@ -173,6 +176,7 @@
     function renderNutritionUI() {
       const container = document.getElementById('dynamic-nutrition-container');
       container.innerHTML = '';
+      const dateLabel = selectedNutriDate === todayStr ? 'Heute' : formatDateGerman(selectedNutriDate);
 
       selectedNutriKeys.forEach(key => {
         const info = NUTRITION_FIELDS[key];
@@ -210,7 +214,7 @@
         container.innerHTML += `
           <div class="nutri-card-item">
             <div class="card-title" style="font-size: 0.85rem; margin-bottom: 4px;">
-              <span>${info.label} Intake (Heute)</span>
+              <span>${info.label} Intake (${dateLabel})</span>
               <span style="color: ${info.color}; font-weight:800;">${currentVal}${targetDisplay}</span>
             </div>
             <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: ${progressPct}%; background: ${info.fill};"></div></div>
@@ -258,8 +262,13 @@
     }
 
     async function saveTodayNutriToCloud() {
+      // Beim Bearbeiten eines vergangenen Tages soll das dortige Körpergewicht
+      // NICHT mit dem aktuellen Gewicht überschrieben werden.
+      const existingLog = (nutriLogHistory || []).find(l => l.date === selectedNutriDate);
+      const weightForThisDate = selectedNutriDate === todayStr ? userWeight : (existingLog ? existingLog.weight : null);
+
       const payload = { 
-        date: todayStr, weight: userWeight, protein: todayNutri.protein, kcal: todayNutri.kcal, 
+        date: selectedNutriDate, weight: weightForThisDate, protein: todayNutri.protein, kcal: todayNutri.kcal, 
         fat: todayNutri.fat, sat_fat: todayNutri.satFat, carbs: todayNutri.carbs, sugar: todayNutri.sugar, 
         fiber: todayNutri.fiber, salt: todayNutri.salt, today_entries: todayEntries, user_id: currentUser.id 
       };
@@ -267,7 +276,35 @@
       if (error) {
         console.error("Fehler beim Speichern des Tages-Trackings:", error.message, error);
         alert("Eintrag konnte nicht gespeichert werden: " + error.message);
+      } else {
+        // Lokale Historie direkt aktuell halten (ohne Reload), z.B. für die Katze und Datums-Sprünge
+        nutriLogHistory = (nutriLogHistory || []).filter(l => l.date !== selectedNutriDate);
+        nutriLogHistory.push(payload);
       }
+    }
+
+    // Wechselt den Bearbeitungstag im Ernährungs-Tracker (Datumsauswahl)
+    function switchNutriDate() {
+      selectedNutriDate = document.getElementById('nutri-date-picker').value || todayStr;
+      loadNutriDataForDate();
+    }
+
+    function jumpToTodayNutri() {
+      selectedNutriDate = todayStr;
+      document.getElementById('nutri-date-picker').value = todayStr;
+      loadNutriDataForDate();
+    }
+
+    function loadNutriDataForDate() {
+      const log = (nutriLogHistory || []).find(l => l.date === selectedNutriDate);
+      if (log) {
+        todayNutri = { protein: log.protein || 0, kcal: log.kcal || 0, fat: log.fat || 0, satFat: log.sat_fat || 0, carbs: log.carbs || 0, sugar: log.sugar || 0, fiber: log.fiber || 0, salt: log.salt || 0 };
+        todayEntries = log.today_entries || [];
+      } else {
+        todayNutri = { protein: 0, kcal: 0, fat: 0, satFat: 0, carbs: 0, sugar: 0, fiber: 0, salt: 0 };
+        todayEntries = [];
+      }
+      renderNutritionUI();
     }
 
     async function saveCloudFoodLists() {
@@ -326,14 +363,17 @@
         nutriLogHistory = logs;
         weightHistory = logs.filter(l => l.weight > 0).sort((a, b) => new Date(a.date) - new Date(b.date));
         if (weightHistory.length > 0) { userWeight = weightHistory[weightHistory.length - 1].weight; document.getElementById('latest-weight-display').innerText = `${userWeight} kg`; }
-        const todaysLogs = logs.filter(l => l.date === todayStr);
-        if (todaysLogs.length > 1) {
-          console.warn(`Achtung: ${todaysLogs.length} Zeilen in daily_logs für heute gefunden (sollte nur 1 sein). Vermutlich fehlt der UNIQUE-Constraint auf (date,user_id). Nehme die letzte.`);
+        const matchingLogs = logs.filter(l => l.date === selectedNutriDate);
+        if (matchingLogs.length > 1) {
+          console.warn(`Achtung: ${matchingLogs.length} Zeilen in daily_logs für ${selectedNutriDate} gefunden (sollte nur 1 sein). Vermutlich fehlt der UNIQUE-Constraint auf (date,user_id). Nehme die letzte.`);
         }
-        const todayLog = todaysLogs[todaysLogs.length - 1];
-        if (todayLog) {
-          todayNutri = { protein: todayLog.protein || 0, kcal: todayLog.kcal || 0, fat: todayLog.fat || 0, satFat: todayLog.sat_fat || 0, carbs: todayLog.carbs || 0, sugar: todayLog.sugar || 0, fiber: todayLog.fiber || 0, salt: todayLog.salt || 0 };
-          todayEntries = todayLog.today_entries || [];
+        const selectedLog = matchingLogs[matchingLogs.length - 1];
+        if (selectedLog) {
+          todayNutri = { protein: selectedLog.protein || 0, kcal: selectedLog.kcal || 0, fat: selectedLog.fat || 0, satFat: selectedLog.sat_fat || 0, carbs: selectedLog.carbs || 0, sugar: selectedLog.sugar || 0, fiber: selectedLog.fiber || 0, salt: selectedLog.salt || 0 };
+          todayEntries = selectedLog.today_entries || [];
+        } else {
+          todayNutri = { protein: 0, kcal: 0, fat: 0, satFat: 0, carbs: 0, sugar: 0, fiber: 0, salt: 0 };
+          todayEntries = [];
         }
       }
 
@@ -564,11 +604,10 @@
     function getPetFatnessScore() {
       const target = nutriTargets.kcal || 2800;
       let entries = (nutriLogHistory || [])
-        .filter(l => l.kcal > 0 && l.date !== todayStr)
+        .filter(l => l.kcal > 0)
         .sort((a, b) => new Date(b.date) - new Date(a.date))
-        .slice(0, 6)
+        .slice(0, 7)
         .map(l => l.kcal);
-      if (todayNutri.kcal > 0) entries.unshift(todayNutri.kcal);
       if (!entries.length) return 50; // Noch keine Daten -> neutrale Katze
       const avgKcal = entries.reduce((a, b) => a + b, 0) / entries.length;
       const ratio = avgKcal / target;
@@ -600,8 +639,10 @@
       document.getElementById('pet-status-text').innerText = statusText;
 
       const target = nutriTargets.kcal || 2800;
-      document.getElementById('pet-kcal-hint').innerText = todayNutri.kcal > 0
-        ? `Heute gefüttert: ${Math.round(todayNutri.kcal)} / ${target} kcal`
+      const todayLog = (nutriLogHistory || []).find(l => l.date === todayStr);
+      const todayKcal = todayLog ? (todayLog.kcal || 0) : 0;
+      document.getElementById('pet-kcal-hint').innerText = todayKcal > 0
+        ? `Heute gefüttert: ${Math.round(todayKcal)} / ${target} kcal`
         : `Noch nichts gefüttert heute (Ziel: ${target} kcal)`;
     }
 
@@ -647,7 +688,22 @@
       const val = parseFloat(document.getElementById('user-weight').value);
       if (!val) return;
       userWeight = val;
-      await saveTodayNutriToCloud();
+      // Unabhängig vom gerade im Ernährungs-Tab ausgewählten Datum: Gewicht gehört immer zu HEUTE.
+      const existing = (nutriLogHistory || []).find(l => l.date === todayStr) || {};
+      const payload = {
+        date: todayStr, weight: userWeight,
+        protein: existing.protein || 0, kcal: existing.kcal || 0, fat: existing.fat || 0, sat_fat: existing.sat_fat || 0,
+        carbs: existing.carbs || 0, sugar: existing.sugar || 0, fiber: existing.fiber || 0, salt: existing.salt || 0,
+        today_entries: existing.today_entries || [], user_id: currentUser.id
+      };
+      const { error } = await supabaseClient.from('daily_logs').upsert(payload, { onConflict: 'date,user_id' });
+      if (error) {
+        console.error("Fehler beim Speichern des Gewichts:", error.message, error);
+        alert("Gewicht konnte nicht gespeichert werden: " + error.message);
+        return;
+      }
+      nutriLogHistory = (nutriLogHistory || []).filter(l => l.date !== todayStr);
+      nutriLogHistory.push(payload);
       loadAllData();
       alert("Gewicht gesichert!");
     }
