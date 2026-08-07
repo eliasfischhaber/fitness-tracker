@@ -68,7 +68,6 @@
         document.getElementById('current-user-tag').innerText = username;
         document.getElementById('workout-date').value = todayStr;
         selectedNutriDate = todayStr;
-        document.getElementById('nutri-date-picker').value = todayStr;
         
         await loadAllData();
       } else {
@@ -283,18 +282,6 @@
       }
     }
 
-    // Wechselt den Bearbeitungstag im Ernährungs-Tracker (Datumsauswahl)
-    function switchNutriDate() {
-      selectedNutriDate = document.getElementById('nutri-date-picker').value || todayStr;
-      loadNutriDataForDate();
-    }
-
-    function jumpToTodayNutri() {
-      selectedNutriDate = todayStr;
-      document.getElementById('nutri-date-picker').value = todayStr;
-      loadNutriDataForDate();
-    }
-
     function loadNutriDataForDate() {
       const log = (nutriLogHistory || []).find(l => l.date === selectedNutriDate);
       if (log) {
@@ -387,6 +374,7 @@
       renderManualFoodUI();
       renderWeightChart();
       renderWeekStrip();
+      renderWorkoutWeekStrip();
     }
 
     function switchMainTab(tab) {
@@ -425,7 +413,7 @@
       switchDay(Object.keys(userPlans)[0]);
     }
 
-    function switchDay(day) { currentDay = day; renderDaySelector(); renderWorkout(); populateExercisePicker(); renderChart(); }
+    function switchDay(day) { currentDay = day; renderDaySelector(); renderWorkout(); populateExercisePicker(); renderChart(); renderWorkoutWeekStrip(); }
 
     function renderWorkout() {
       const container = document.getElementById('workout-container');
@@ -646,43 +634,89 @@
         : `Noch nichts gefüttert heute (Ziel: ${target} kcal)`;
     }
 
+    let nutriWeekOffset = 0;
+    let workoutWeekOffset = 0;
+
+    // Liefert die 7 Tage (Mo-So) einer Woche relativ zur aktuellen Woche (offset in Wochen)
+    function getWeekDates(offset) {
+      const now = new Date();
+      const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - dayOfWeek + offset * 7);
+
+      const dayLabels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+      return dayLabels.map((label, i) => {
+        const dt = new Date(monday);
+        dt.setDate(monday.getDate() + i);
+        const year = dt.getFullYear();
+        const month = String(dt.getMonth() + 1).padStart(2, '0');
+        const day = String(dt.getDate()).padStart(2, '0');
+        return { label, dateNum: dt.getDate(), dtStr: `${year}-${month}-${day}` };
+      });
+    }
+
+    // Ernährungs-Wochenansicht (im Dashboard) - Klick auf einen Tag wählt ihn im Nährwert-Tracking aus
     function renderWeekStrip() {
       const strip = document.getElementById('week-strip');
       if (!strip) return;
       strip.innerHTML = '';
-      
-      const now = new Date();
-      // Montag der aktuellen Woche finden
-      const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
-      const monday = new Date(now); 
-      monday.setDate(now.getDate() - dayOfWeek);
-      
-      const days = ['Mo','Di','Mi','Do','Fr','Sa','So'];
-      days.forEach((d, i) => {
-        const dt = new Date(monday); 
-        dt.setDate(monday.getDate() + i);
-        
-        // Lokales Datum sicher zusammenbauen (YYYY-MM-DD)
-        const year = dt.getFullYear();
-        const month = String(dt.getMonth() + 1).padStart(2, '0');
-        const day = String(dt.getDate()).padStart(2, '0');
-        const dtStr = `${year}-${month}-${day}`;
-        
+      getWeekDates(nutriWeekOffset).forEach(({ label, dateNum, dtStr }) => {
         const isToday = dtStr === todayStr;
-        
-        // Prüfen, ob an diesem Tag trainiert wurde (für den Indikator)
-        const hasWorkout = dbHistory.some(h => h.date === dtStr);
-        const dotHTML = hasWorkout ? '<div style="width:6px;height:6px;background:var(--green);border-radius:50%;margin:4px auto 0;"></div>' : '';
-
+        const isSelected = dtStr === selectedNutriDate;
+        const hasData = (nutriLogHistory || []).some(l => l.date === dtStr && l.kcal > 0);
+        const dotHTML = hasData ? '<div style="width:6px;height:6px;background:var(--green);border-radius:50%;margin:4px auto 0;"></div>' : '';
         strip.innerHTML += `
-          <div class="day-pill ${isToday ? 'today' : ''}">
-            <div class="day-name">${d}</div>
-            <div>${dt.getDate()}</div>
+          <div class="day-pill ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}" onclick="selectNutriDay('${dtStr}')">
+            <div class="day-name">${label}</div>
+            <div>${dateNum}</div>
             ${dotHTML}
           </div>
         `;
       });
-}
+    }
+
+    function changeNutriWeek(delta) {
+      nutriWeekOffset += delta;
+      renderWeekStrip();
+    }
+
+    function selectNutriDay(dtStr) {
+      selectedNutriDate = dtStr;
+      loadNutriDataForDate();
+      renderWeekStrip();
+    }
+
+    // Workout-Wochenansicht - Klick auf einen Tag wählt das Trainingsdatum aus
+    function renderWorkoutWeekStrip() {
+      const strip = document.getElementById('workout-week-strip');
+      if (!strip) return;
+      strip.innerHTML = '';
+      const selectedDate = document.getElementById('workout-date').value || todayStr;
+      getWeekDates(workoutWeekOffset).forEach(({ label, dateNum, dtStr }) => {
+        const isToday = dtStr === todayStr;
+        const isSelected = dtStr === selectedDate;
+        const hasWorkout = (dbHistory || []).some(h => h.date === dtStr);
+        const dotHTML = hasWorkout ? '<div style="width:6px;height:6px;background:var(--green);border-radius:50%;margin:4px auto 0;"></div>' : '';
+        strip.innerHTML += `
+          <div class="day-pill ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}" onclick="selectWorkoutDay('${dtStr}')">
+            <div class="day-name">${label}</div>
+            <div>${dateNum}</div>
+            ${dotHTML}
+          </div>
+        `;
+      });
+    }
+
+    function changeWorkoutWeek(delta) {
+      workoutWeekOffset += delta;
+      renderWorkoutWeekStrip();
+    }
+
+    function selectWorkoutDay(dtStr) {
+      document.getElementById('workout-date').value = dtStr;
+      renderWorkout();
+      renderWorkoutWeekStrip();
+    }
 
     async function saveWeight() {
       const val = parseFloat(document.getElementById('user-weight').value);

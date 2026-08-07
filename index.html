@@ -63,8 +63,12 @@
     .day-btn-add { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: var(--green); font-weight: 800; }
 
     .week-strip { display: flex; justify-content: space-between; gap: 3px; width: 100%; }
-    .day-pill { flex: 1; text-align: center; padding: 8px 0; background: rgba(255, 255, 255, 0.02); border-radius: 8px; border: 1px solid var(--border); font-size: 0.75rem; font-weight: 600; }
+    .day-pill { flex: 1; text-align: center; padding: 8px 0; background: rgba(255, 255, 255, 0.02); border-radius: 8px; border: 1px solid var(--border); font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
+    .day-pill:hover { border-color: var(--border-accent); }
     .day-pill.today { border-color: var(--accent); background: var(--accent-glow); color: #FFF; font-weight: 800; }
+    .day-pill.selected { border-color: var(--green); box-shadow: 0 0 0 1px var(--green) inset; }
+    .week-nav-btn { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.02); color: var(--text); font-size: 0.85rem; cursor: pointer; display:flex; align-items:center; justify-content:center; }
+    .week-nav-btn:hover { border-color: var(--border-accent); }
     .day-name { color: var(--sub); font-size: 0.6rem; margin-bottom: 2px; text-transform: uppercase; }
 
     .progress-bar-bg { width: 100%; height: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); margin: 6px 0 4px 0; }
@@ -164,10 +168,19 @@
 
     <!-- REITER 1: WORKOUT -->
     <div id="view-workout">
+      <div class="card">
+        <div class="card-title">Wochenansicht</div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button class="week-nav-btn" onclick="changeWorkoutWeek(-1)">◀</button>
+          <div class="week-strip" id="workout-week-strip" style="flex:1;"></div>
+          <button class="week-nav-btn" onclick="changeWorkoutWeek(1)">▶</button>
+        </div>
+      </div>
+
       <div class="control-panel">
         <div class="panel-row">
           <span style="font-size: 0.85rem; font-weight: 600; color: var(--sub); white-space: nowrap;">Datum:</span>
-          <input type="date" id="workout-date" onchange="renderWorkout()">
+          <input type="date" id="workout-date" onchange="renderWorkout(); renderWorkoutWeekStrip();">
         </div>
         <div class="panel-row">
           <div class="day-selector-wrapper" id="day-selector-list"></div>
@@ -223,7 +236,11 @@
     <div id="view-dashboard" style="display: none;">
       <div class="card">
         <div class="card-title">Wochenansicht</div>
-        <div class="week-strip" id="week-strip"></div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button class="week-nav-btn" onclick="changeNutriWeek(-1)">◀</button>
+          <div class="week-strip" id="week-strip" style="flex:1;"></div>
+          <button class="week-nav-btn" onclick="changeNutriWeek(1)">▶</button>
+        </div>
       </div>
 
       <div class="card">
@@ -245,11 +262,6 @@
       <!-- NÄHRWERT-TRACKING -->
       <div class="card">
         <div class="card-title"><span>Nährwert-Tracking</span></div>
-
-        <div style="display:flex; gap:6px; align-items:center; margin-bottom:12px;">
-          <input type="date" id="nutri-date-picker" onchange="switchNutriDate()" style="flex:1; margin-bottom:0;">
-          <button class="btn-small" style="width:auto; padding:11px 16px; margin:0;" onclick="jumpToTodayNutri()">Heute</button>
-        </div>
 
         <button class="toggle-section-btn" onclick="toggleSettingsSection('visible')" style="margin-top:0;">
           <span>👁️ Sichtbare Nährwerte wählen</span><span id="toggle-icon-visible">▼</span>
@@ -358,16 +370,4 @@
         <div id="pet-kcal-hint" style="font-size:0.75rem; color:var(--sub); margin-top: 4px;"></div>
       </div>
     </div>
-  </div>
-
-  <div id="scanner-overlay">
-    <button id="close-scanner-btn" onclick="stopBarcodeScanner()">✕ Schließen</button>
-    <div id="reader"></div>
-    <div id="scanner-hint" style="position:absolute; bottom:max(24px, env(safe-area-inset-bottom)); left:0; right:0; text-align:center; color:#FFF; font-size:0.85rem; background:rgba(0,0,0,0.55); padding:10px 16px; z-index:100000;">
-      📷 Strichcode waagerecht, gut beleuchtet & mittig halten
-    </div>
-  </div>
-
-  <script src="app.js?v=6"></script>
-</body>
-</html>
+  </div
